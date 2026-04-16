@@ -25,6 +25,12 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
+
 COHORT="${1:-chd}"
 
 echo "============================================================"

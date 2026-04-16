@@ -30,6 +30,10 @@ PASS="${2:-neo4j}"
 ADDR="${3:-bolt://localhost:7687}"
 SEEDS="${4:-maf001}"   # maf001 (default) | maf01 | "" (original 56-gene)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
 
 # Locate cypher-shell
 CYPHER_SHELL="${CYPHER_SHELL:-cypher-shell}"
@@ -44,7 +48,7 @@ run_query() {
     echo "[$(date +%H:%M:%S)] Running $qfile -> $outfile ..."
     "$CYPHER_SHELL" -u "$USER" -p "$PASS" -a "$ADDR" \
         --format plain \
-        < "$SCRIPT_DIR/$qfile" \
+        < "./$qfile" \
         > "$outfile" 2>/dev/null || {
             # cypher-shell may exit non-zero on warnings — check output has content
             if [ ! -s "$outfile" ]; then
@@ -75,7 +79,7 @@ if [ ! -f "$SEEDS_FILE" ]; then
     exit 1
 fi
 echo "Generating query files from: $SEEDS_FILE"
-python3 "$SCRIPT_DIR/generate_export_cypher.py" \
+python3 "$PIPELINE_DIR/generate_export_cypher.py" \
     --seeds   "$SEEDS_FILE" \
     --cohort  "chd" \
     --out-dir "."

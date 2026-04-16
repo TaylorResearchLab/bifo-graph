@@ -32,6 +32,10 @@ SEEDS="${2:-maf001}"   # maf001 (default) | maf01 | "" (original)
 N_BOOTS="${3:-500}"
 N_CORES="${4:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
 RESULTS_DIR="kf_${COHORT}_results"
 
 # Default cores to nproc if not specified
@@ -47,7 +51,7 @@ echo "  Total runs               : $((N_BOOTS * 3))"
 echo "  Cores                    : $N_CORES"
 echo "============================================================"
 
-python3 "$SCRIPT_DIR/kf_resampling.py" \
+python3 "$PIPELINE_DIR/kf_resampling.py" \
     --kept-edges   "${RESULTS_DIR}/results_kept_edges.csv" \
     --edges-merged "kf_${COHORT}_edges_all.csv" \
     --node-index   "${RESULTS_DIR}/results_node_index.json" \

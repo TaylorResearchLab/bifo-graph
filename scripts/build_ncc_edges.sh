@@ -20,8 +20,23 @@
 set -euo pipefail
 
 COHORT="${1:-chd}"
-NCC_DIR="${2:-./ncc_cilia_pathways}"
+NCC_DIR="${2:-}"
+if [ -z "$NCC_DIR" ]; then
+    if [ -d "./ncc_cilia_pathways" ]; then
+        NCC_DIR="./ncc_cilia_pathways"
+    elif [ -d "$DATA_DIR/ncc_cilia_pathways" ]; then
+        NCC_DIR="$DATA_DIR/ncc_cilia_pathways"
+    else
+        echo "ERROR: ncc_cilia_pathways/ not found in working dir or repo data/"
+        echo "Run setup_workspace.sh first, or: ln -s /path/to/repo/data/ncc_cilia_pathways ."
+        exit 1
+    fi
+fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
 
 if [ ! -d "$NCC_DIR" ]; then
     echo "ERROR: NCC pathway directory not found: $NCC_DIR"
@@ -34,7 +49,7 @@ echo "Building NCC membership edges for cohort: $COHORT"
 echo "  NCC dir: $NCC_DIR"
 echo "============================================================"
 
-python3 "$SCRIPT_DIR/build_ncc_membership_edges.py" \
+python3 "$PIPELINE_DIR/build_ncc_membership_edges.py" \
     --ncc-dir   "$NCC_DIR" \
     --nodes-csv "kf_${COHORT}_nodes_clean.csv" \
     --out-edges "kf_${COHORT}_ncc_membership_edges.csv" \

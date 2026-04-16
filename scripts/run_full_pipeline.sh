@@ -37,6 +37,10 @@ NEO4J_USER="${3:-neo4j}"
 NEO4J_PASS="${4:-neo4j}"
 NEO4J_ADDR="${5:-bolt://localhost:7687}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
 
 log_stage() {
     echo ""

@@ -27,20 +27,24 @@ set -euo pipefail
 
 COHORT="${1:-chd}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
 
 echo "============================================================"
 echo "Cleaning cypher-shell output for cohort: $COHORT"
 echo "============================================================"
 
-python3 "$SCRIPT_DIR/clean_cypher_output.py" \
+python3 "$PIPELINE_DIR/clean_cypher_output.py" \
     "kf_${COHORT}_nodes.csv" \
     "kf_${COHORT}_nodes_clean.csv"
 
-python3 "$SCRIPT_DIR/clean_cypher_output.py" \
+python3 "$PIPELINE_DIR/clean_cypher_output.py" \
     "kf_${COHORT}_edges_raw.csv" \
     "kf_${COHORT}_edges_raw_clean.csv"
 
-python3 "$SCRIPT_DIR/clean_cypher_output.py" \
+python3 "$PIPELINE_DIR/clean_cypher_output.py" \
     "kf_${COHORT}_pathway_membership_edges.csv" \
     "kf_${COHORT}_pathway_membership_edges_clean.csv"
 

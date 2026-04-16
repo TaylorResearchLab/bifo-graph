@@ -6,7 +6,7 @@
 # Usage:
 #   bash run_conditioning.sh [COHORT] [MAPPING]
 #   COHORT  defaults to "chd"
-#   MAPPING defaults to "./bifo_ddkg_mapping.yaml"
+#   MAPPING defaults to "$CONFIG_DIR/bifo_ddkg_mapping.yaml"
 #
 # Inputs:
 #   kf_{cohort}_nodes_extended.csv
@@ -28,8 +28,23 @@
 set -euo pipefail
 
 COHORT="${1:-chd}"
-MAPPING="${2:-./bifo_ddkg_mapping.yaml}"
+MAPPING="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PIPELINE_DIR="$REPO_DIR/pipeline"
+DATA_DIR="$REPO_DIR/data"
+CONFIG_DIR="$REPO_DIR/config"
+if [ -z "$MAPPING" ]; then
+    if [ -f "$CONFIG_DIR/bifo_ddkg_mapping.yaml" ]; then
+        MAPPING="$CONFIG_DIR/bifo_ddkg_mapping.yaml"
+    elif [ -f "$CONFIG_DIR/bifo_ddkg_mapping.yaml" ]; then
+        MAPPING="$CONFIG_DIR/bifo_ddkg_mapping.yaml"
+    else
+        echo "ERROR: bifo_ddkg_mapping.yaml not found in working dir or repo config/"
+        echo "Run setup_workspace.sh first, or: cp config/bifo_ddkg_mapping.yaml ."
+        exit 1
+    fi
+fi
 RESULTS_DIR="kf_${COHORT}_results"
 
 if [ ! -f "$MAPPING" ]; then
@@ -45,7 +60,7 @@ echo "  Mapping : $MAPPING"
 echo "  Results : $RESULTS_DIR/"
 echo "============================================================"
 
-python3 "$SCRIPT_DIR/bifo_conditioning.py" \
+python3 "$PIPELINE_DIR/bifo_conditioning.py" \
     --nodes         "kf_${COHORT}_nodes_extended.csv" \
     --edges         "kf_${COHORT}_edges_all.csv" \
     --mapping       "$MAPPING" \

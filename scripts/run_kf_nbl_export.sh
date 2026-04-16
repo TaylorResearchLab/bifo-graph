@@ -48,10 +48,16 @@ echo "============================================================"
 
 # Generate cypher query files from current seed list
 SEEDS_FILE="kf_nbl_seeds${SEEDS:+_${SEEDS}}.txt"
+# Resolve seed file: working dir first, then repo data/cohorts/
 if [ ! -f "$SEEDS_FILE" ]; then
-    echo "ERROR: Seed file not found: $SEEDS_FILE"
-    echo "Expected in working directory. Copy from repo: data/cohorts/nbl/$SEEDS_FILE"
-    exit 1
+    REPO_SEEDS="$DATA_DIR/cohorts/nbl/$SEEDS_FILE"
+    if [ -f "$REPO_SEEDS" ]; then
+        SEEDS_FILE="$REPO_SEEDS"
+    else
+        echo "ERROR: Seed file not found: $SEEDS_FILE"
+        echo "Looked in: $(pwd)/$SEEDS_FILE and $REPO_SEEDS"
+        exit 1
+    fi
 fi
 echo "Generating query files from: $SEEDS_FILE"
 python3 "$PIPELINE_DIR/generate_export_cypher.py" \

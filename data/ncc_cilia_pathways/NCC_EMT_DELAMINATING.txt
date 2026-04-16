@@ -1,0 +1,36 @@
+# NCC_EMT_DELAMINATING
+# Delaminating neural crest EMT
+# Source: Stundl et al. 2026 Nat Rev Mol Cell Biol; Klena et al. 2017 Cold Spring Harb Perspect Biol
+# N_genes: 30
+# Format: HGNC gene symbol (requires CUI mapping before use in pipeline)
+#
+SOX5
+SOX9
+SOX10
+FOXD3
+SNAI1
+SNAI2
+ZEB2
+LMO4
+TWIST1
+RHOB
+CDH1
+CDH2
+CDH6
+CDH7
+CDH11
+ITGB1
+CTNNB1
+TCF7L2
+MMP2
+MMP14
+MMP16
+ADAM10
+CD44
+GJA1
+TP53
+EZH2
+HIF1A
+SIN3A
+HDAC1
+HDAC2

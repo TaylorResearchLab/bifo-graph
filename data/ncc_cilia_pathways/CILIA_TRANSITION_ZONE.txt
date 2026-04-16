@@ -1,0 +1,29 @@
+# CILIA_TRANSITION_ZONE
+# Transition zone ciliopathy module
+# Source: Stundl et al. 2026 Nat Rev Mol Cell Biol; Klena et al. 2017 Cold Spring Harb Perspect Biol
+# N_genes: 23
+# Format: HGNC gene symbol (requires CUI mapping before use in pipeline)
+#
+AHI1
+B9D1
+B9D2
+CC2D2A
+CEP290
+IQCB1
+LCA5
+MKS1
+NPHP1
+NPHP4
+RPGRIP1
+RPGRIP1L
+SDCCAG8
+TCTN1
+TCTN2
+TCTN3
+TMEM17
+TMEM67
+TMEM107
+TMEM138
+TMEM216
+TMEM231
+TMEM237

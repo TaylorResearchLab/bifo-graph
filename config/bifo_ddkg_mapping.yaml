@@ -1,0 +1,2470 @@
+version: 0.7.1
+description: >
+  DDKG/UBKG-to-BIFO cross-mapping. v0.7.1 — final polish.
+  Changes from v0.7.0:
+    - Fixed: inverse_has_best_classification inconsistency — now matches
+      forward classification (weak_mechanistic_or_observational)
+    - Tightened: semantic_limitations opening sentence — removes "intent"
+      framing, now reads as a formal definition aligned with methods-paper tone
+  Final classification distribution:
+    mechanistic=99, weak_mechanistic_or_observational=61,
+    observational=44, contextual_constraint=29, nonpropagating_context=18
+    Total: 251 predicate entries, 56 entity-pair overrides, 164 SABs mapped
+
+graph_assumptions:
+  ddkg_schema: UBKG/Petagraph-style property graph with Concept backbone and Code/Term metadata.
+  primary_traversable_nodes: [Concept]
+  metadata_node_labels: [Code, Term, Definition, SemanticType]
+  non_flow_metadata_edges:
+    - CODE
+    - PREF_TERM
+    - PT
+    - SYN
+    - ACR
+    - DEF
+    - STY
+    - label
+    - synonym
+    - xref
+    - cross_reference
+
+entity_classes:
+  G: Genetic sequence and variation
+  CH: Chromatin state over genomic regions
+  RNA: Transcripts with role-dependent function
+  P: Proteins with state-dependent activity
+  CM: Macromolecular complexes and assemblies
+  SM: Small molecules with role-dependent semantics
+  ION: Ionic and electrochemical state
+  PW: Pathways and biological programs
+  C: Cellular configuration / cell types / cell populations
+  S: Spatial context across scales
+  PH: Phenotype
+  DS: Disease
+  X: External perturbations
+  MECH: Mechanical and physical state
+
+node_resolution:
+  prefer_concept_nodes: true
+  concept_resolution_strategy: >
+    Infer BIFO type for Concept nodes from attached Code nodes.
+    If multiple candidates, select most specific using priority_order.
+  priority_order:
+    # When a Concept has Code nodes from multiple SABs that map to different
+    # BIFO entity classes, this ordering resolves the ambiguity by selecting
+    # the most clinically and biologically terminal class.
+    #
+    # Justification for ordering:
+    #   DS > PH: A Concept co-coded as both a disease (MONDO) and a phenotype
+    #     (HPO) represents a disease entity; the phenotype is a manifestation.
+    #   PH > PW: A phenotype-pathway Concept represents an observable trait,
+    #     not just a process.
+    #   PW > C: A pathway-cell Concept is primarily a functional program.
+    #   C > CM: A cell type that includes a complex annotation is primarily
+    #     a cell entity.
+    #   CM > P: A complex that includes protein annotation is primarily the
+    #     assembled complex, not its individual subunits.
+    #   P > RNA > CH > G: Protein is downstream of RNA, which is downstream
+    #     of chromatin, which is downstream of sequence — following the
+    #     central dogma. For a Concept co-coded across these layers, the
+    #     most processed form takes precedence.
+    #   SM > ION: Small molecules include ionic species; ION is a subtype.
+    #   S last among biological classes: spatial context is a modifier,
+    #     not an entity class in its own right.
+    #   X, MECH: External perturbations and mechanical state are modifiers.
+    #
+    # This ordering reflects BIFO's information-flow direction: signal
+    # propagates from upstream (G, CH) to downstream (P, PH, DS). When
+    # ambiguous, we classify at the downstream end.
+    - DS
+    - PH
+    - PW
+    - C
+    - CM
+    - P
+    - RNA
+    - CH
+    - G
+    - SM
+    - ION
+    - S
+    - X
+    - MECH
+
+  sab_to_entity:
+    # -----------------------------------------------------------------------
+    # G — Genetic sequence and variation
+    # -----------------------------------------------------------------------
+    HGNC: G
+    ENTREZ: G
+    NCBIGene: G
+    NCBI: G
+    GENCODE: G
+    GENCODE_ONT: G
+    GENCODE_VS: G
+    ENSEMBL: G              # prefix disambiguation: ENSG→G, ENST→RNA, ENSP→P (Python)
+    CLINVAR: G
+    DBSNP: G
+    GNOMAD: G
+    KFPT: G                 # Kids First variant burden — treat as G(variant)
+    KFGENEBIN: G            # Kids First gene-level variant burden bins
+    PLEXIFORM: G            # Plexiform neurofibroma dataset — ENSG IDs, no co-SABs (31,437 codes)
+    REFSEQ: G               # NCBI RefSeq gene/transcript sequences
+    CHR: G                  # Chromosome identifiers
+    SO: G                   # Sequence Ontology — sequence features
+    MGI: G                  # Mouse Genome Informatics gene orthology
+    JAX: G                  # Jackson Laboratory mouse gene/strain
+    GTEXEQTL: G             # GTEx eQTL variants
+    CLINGEN.ALLELE.REGISTRY: G
+
+    # -----------------------------------------------------------------------
+    # CH — Chromatin state over genomic regions
+    # -----------------------------------------------------------------------
+    ENCODE.CCRE: CH
+    ENCODE.CCRE.ACTIVITY: CH
+    ENCODE.CCRE.CTCF: CH
+    ENCODE.CCRE.H3K27AC: CH
+    ENCODE.CCRE.H3K4ME3: CH
+    ENCODE.RBS.150.NO.OVERLAP: CH
+    4DNL: CH                # 4DN loop annotations — chromatin topology
+
+    # -----------------------------------------------------------------------
+    # RNA — Transcripts with role-dependent function
+    # -----------------------------------------------------------------------
+    RNA: RNA
+    MRNA: RNA
+    GTEXEXP: RNA            # GTEx expression — RNA abundance context
+
+    # -----------------------------------------------------------------------
+    # P — Proteins with state-dependent activity
+    # -----------------------------------------------------------------------
+    UNIPROTKB: P
+    UNIPROTKB.ISOFORM: P
+    UNIPROT: P
+    PRO: P
+    PR: P
+    STRING: P
+    PTHR: P
+    GP.ID2PRO: P
+    HAS.PRO.ENTRY: P
+    MOD: P                  # Protein modification ontology (PTM context)
+    MI: P                   # Molecular Interactions CV
+    GLYCOPROTEIN: P
+    GLYCOPROTEIN.EVIDENCE: P
+    GLYCOSYLATION.SITE: P
+    GLYGEN.GLYCOSYLATION: P
+    GLYGEN.RESIDUE: P
+    NIFSTD.NLX.MOL: P
+
+    # -----------------------------------------------------------------------
+    # CM — Macromolecular complexes and assemblies
+    # -----------------------------------------------------------------------
+    CPX: CM
+    COMPLEXPORTAL: CM
+    INTACT_COMPLEX: CM
+    MRO: CM                 # MHC Restriction Ontology — HLA protein complexes
+
+    # -----------------------------------------------------------------------
+    # SM — Small molecules with role-dependent semantics
+    # -----------------------------------------------------------------------
+    CHEBI: SM
+    PUBCHEM: SM
+    HMDB: SM
+    GLYTOUCAN: SM
+    GLY.TYPE.SITE: P        # Glycosylation site on protein — P not SM
+    GLYCAN: SM
+    GLYCAN.MOTIF: SM
+    GLYGEN.GLYCOSEQUENCE: SM
+    DRON: SM
+    AMINO.ACID: SM
+    CONJUGATE: SM
+    CHMO: SM
+    FOODON: SM
+    VO: SM
+    DRUGBANK: SM            # Chemical entities; role determined by SM state not SAB
+    LINCS: SM
+    CMAP: SM
+    MMSL: SM                # MeSH Supplementary Chemical Records (36,384 codes)
+    MMX: SM                 # Drug formulations (15,087 codes)
+    GS: SM                  # MeSH substance records — chemicals (mercaptopurine etc)
+
+    # -----------------------------------------------------------------------
+    # PW — Pathways and biological programs
+    # -----------------------------------------------------------------------
+    GO: PW                  # default; Python applies go_subontology_override before this
+    GOCC: S                 # GO cellular component — overridden to S
+    REACTOME: PW
+    MSIGDB: PW
+    WIKIPATHWAYS: PW
+    KEGG: PW
+    WP: PW
+    SBO: PW
+    OBI: PW
+    EDAM: PW
+    MAXO: PW
+    MF: PW
+    GEO: PW
+    BAO: PW
+    ERO: PW
+    SIO: PW
+    PGO: PW
+    GLYCOSYLTRANSFERASE.REACTION: PW
+
+    # -----------------------------------------------------------------------
+    # C — Cellular configuration / cell types / cell populations
+    # -----------------------------------------------------------------------
+    CL: C
+    AZ: C
+    ASP2019CLUSTER: C
+    CLO: C
+    CELL: C
+    BTO: C
+    ALLENTRANSGENICLINE: C
+    NIFSDT.NLX.CELL: C
+    PCL: C                  # Provisional Cell ontology — Allen/HuBMAP cell types
+    DCT: C                  # DeepCellType annotations
+    STELLAR: C              # STELLAR cell types
+    NPOKB: C                # Allen Cell Types — mouse neuron descriptions
+
+    # -----------------------------------------------------------------------
+    # S — Spatial context across scales
+    # -----------------------------------------------------------------------
+    HSCLO38: S
+    HSCLO37: S
+    HSCLO: S
+    UBERON: S
+    FMA: S
+    MA: S
+    MBA: S
+    AIBS.MUS.LAB: S
+    CARO: S
+    UWDA: S
+    NEU: S
+    NIFSTD: S
+    NIFSTD.NIFEXT: S
+    NIFSTD.NLX: S
+    NIFSTD.NLX.ORG: S
+    PAX.PAXRAT: S
+    PAX.PAXSPN: S
+    GCO: S
+    ENVO: S
+    FBBT: S
+    FBDV: S
+    HSAPDV: S
+    WBLS: S
+    ZFA: S
+    ZEA: S
+    DDANAT: S
+    PO: S
+    GLYGEN.LOCATION: S
+    BSPO: S                 # Biological Spatial Ontology — anatomical planes
+    HRA: S                  # Human Reference Atlas anatomical structures
+    HUBMAP: S               # HuBMAP anatomical locations
+    SENNET: S               # SenNet anatomical locations
+    MMSET1: S               # Mus musculus neuroanatomy — ganglion-to-organ pathways
+    MMSET2CN: S
+    MMSET4: S
+
+    # -----------------------------------------------------------------------
+    # PH — Phenotype (observable traits)
+    # -----------------------------------------------------------------------
+    HPO: PH
+    HP: PH
+    MP: PH
+    NBO: PH
+    OAE: PH
+    MPATH: PH
+    PATO: PH
+    OBA: PH
+    EO: PH
+    TO: PH
+
+    # -----------------------------------------------------------------------
+    # DS — Disease (multi-phenotype construct)
+    # -----------------------------------------------------------------------
+    OMIM: DS
+    MONDO: DS
+    DOID: DS
+    ORDO: DS
+    EFO: DS
+    MEDGEN: DS
+    ORPHANET: DS
+    IDO: DS
+    MFOMD: DS
+    OGMS: DS
+    PNDS: DS
+    NCI: DS                 # Co-occurs with MONDO/DOID/OMIM/EFO (182,079 codes)
+    MSH: DS                 # Co-occurs with MONDO/DOID/OMIM/ORDO/HP (354,271 codes)
+    SNOMEDCT_US: DS         # Renamed from 'SNOMED CT_US' in v2 build
+    SNOMEDCT_VET: DS        # Renamed from 'SNOMED CT_VET' in v2 build
+
+    # -----------------------------------------------------------------------
+    # X — External perturbations
+    # -----------------------------------------------------------------------
+    ECTO: X                 # Exposure ontology — environmental/chemical exposures
+
+    # -----------------------------------------------------------------------
+    # MECH — Mechanical and physical state
+    # -----------------------------------------------------------------------
+    SPARC: MECH
+
+  codeid_regex_to_entity:
+    - {pattern: '^ENSG\d+$',    entity: G}
+    - {pattern: '^ENST\d+$',    entity: RNA}
+    - {pattern: '^ENSP\d+$',    entity: P}
+    - {pattern: '^rs\d+$',      entity: G}
+    - {pattern: '^R-HSA-\d+$',  entity: PW}
+    - {pattern: '^CL:\d+$',     entity: C}
+    - {pattern: '^UBERON:\d+$', entity: S}
+    - {pattern: '^HP:\d+$',     entity: PH}
+    - {pattern: '^MONDO:\d+$',  entity: DS}
+    - {pattern: '^CHEBI:\d+$',  entity: SM}
+    - {pattern: '^GO:\d+$',     entity: PW}   # default; overridden by go_subontology_override
+    - {pattern: '^PR:\d+$',     entity: P}
+
+  go_subontology_override:
+    # Python resolves GO terms via OBO namespace (primary) then row heuristic (fallback).
+    # These flags control which mappings are active.
+    compartment_terms_to_S: true     # cellular_component namespace → S
+    complex_terms_to_CM: true        # cellular_component + "complex" in name → CM
+    biological_process_terms_to_PW: true
+    molecular_function_terms_to_PW: true
+    # Column names to check for namespace/label on individual rows (fallback only)
+    namespace_columns: [namespace, go_aspect, aspect, term_type, category]
+    label_columns: [name, label, term, preferred_name, code]
+
+  sab_overrides:
+    ENSEMBL:
+      use_prefix_disambiguation: true
+
+  ignored_or_auxiliary_sabs:
+    # --- Infrastructure / UBKG internal ---
+    - 22-RDF-SYNTAX-NS
+    - FOAF
+    - FALDO
+    - CORE            # UBKG infrastructure nodes ('Laboratory', 'Concept')
+    - SRC             # UBKG source provenance records (V-MSHPOR etc)
+    - UBKBSOURCE
+    - UBKGSOURCE
+    - MTH
+    - UMLS
+    - COB             # Core Ontology for Biology — upper ontology, 1 code
+    - CODAO           # 'Compound disease association' — relationship label, not entity
+    - APOLLO          # Apollo SV software versioning IDs
+    - ALT             # Opaque 5-char UBKG alternate identifier hashes
+    - GCO             # GlyGen category labels (Referenced_protein etc), not instances
+    - OMS
+    - OBCI
+    - OBIB
+    - OMIABIS
+    - OMRSE
+    - OPL
+    - PCO
+    - AOT
+    - GETSDS.JSP?MMRRC   # malformed SAB / URL fragment
+
+    # --- Geographic fragments (1-2 codes each, not biological entities) ---
+    - REPUBLIC        # 'of Ireland'
+    - SOUTH           # 'Korea'
+    - UNITED          # 'Kingdom', 'States'
+    - NODE1GMBSNJ22X1 # single opaque internal node
+
+    # --- Temporal / study metadata ---
+    - TEMPIND         # Temporal index nodes (gene+molecule names as time anchors)
+    - KFCOHORT        # Kids First cohort/study IDs (SD-XXXX), no concept names
+
+    # --- 4DN file/dataset metadata ---
+    - 4DNF
+    - 4DND
+    - 4DNQ
+
+    # --- Numeric / statistical metadata ---
+    - TPM
+    - P_VALUE_BIN
+    - PVALUEBINS
+    - Expression
+    - EXPBINS
+
+    # --- Mus musculus sets (small counts, opaque numeric IDs, no biological content) ---
+    # MMSET1/MMSET2CN/MMSET4 moved to sab_to_entity as S (neuroanatomy)
+
+    # --- MoTrPAC study-specific nodes ---
+    - MOTRPAC         # Rat Ensembl gene + tissue + sex combinations (study metadata)
+
+    # --- DisGeNET association record IDs ---
+    # All DGN* SABs contain opaque MD5 hash IDs — association provenance records,
+    # not biological entities. The Concepts they link resolve via HGNC/MONDO/HPO/DBSNP.
+    - DGNBM           # 1,705,576 hash codes
+    - DGNCM           # 65,588 hash codes
+    - DGNFU           # 315 hash codes
+    - DGNGCM          # 6,275 hash codes
+    - DGNGDA          # 29,135 hash codes
+    - DGNGMM          # 65 hash codes
+    - DGNGV           # 800,444 hash codes
+    - DGNMM           # 326 hash codes
+    - DGNSCM          # 285 hash codes
+    - DGNSM           # 1,260 hash codes
+    - DGNTH           # 10,744 hash codes
+    - DGNV            # 736,241 hash codes
+    - DGNCR           # 223 hash codes
+    - DGNAGE          # age-of-onset association records
+
+    # --- Clinical coding / billing / administrative ---
+    - ATC
+    - CPT
+    - HCPCS
+    - HCPT
+    - HCDT
+    - ICD10
+    - ICD10AE
+    - ICD10AM
+    - ICD10AMAE
+    - ICD10CM
+    - ICD10PCS
+    - ICD9CM
+    - ICF
+    - ICF-CY
+    - ICNP
+    - ICPC2EENG
+    - ICPC2ICD10ENG
+    - ICPC2P
+    - LNC
+    - LCH_NW
+    - MDR
+    - MED-RT
+    - MEDCIN
+    - MEDLINEPLUS
+    - MTHCMSFRF
+    - MTHICD9
+    - MTHICPC2EAE
+    - MTHICPC2ICD10AE
+    - MTHSPL
+    - MVX
+    - CVX
+    - NDC
+    - NDDF
+    - RXNORM
+    - NANDA-I
+    - NIC
+    - NOC
+    - CDT
+    - CCS
+    - CCC             # Clinical Care Classification (ICD-style billing codes)
+    - CCSR_ICD10CM
+    - CCSR_ICD10PCS
+    - CDCREC
+    - CPM
+    - CSP
+    - CHV
+    - SPN             # Standard Product Nomenclature / clinical procedure abbreviations
+    - DSM-5
+    - PDQ
+    - PSY
+    - USP
+    - USPMG
+    - VANDF
+    - UMD
+    - UO
+    - SOP
+    - FLU
+
+    # --- Demographic / social / regulatory ---
+    - HANCESTRO
+    - ICO
+    - DSM-5
+
+    # --- Neuroscience identifier infrastructure ---
+    - ILX
+    - ILX.TR
+
+    # --- GlyGen citation/source metadata ---
+    - GLYGEN.CITATION
+    - GLYGEN.SRC
+
+    # --- Miscellaneous unresolvable ---
+    - OMIT
+    - NUCCHCPT
+
+    # --- HuBMAP/SenNet/HRA metadata (not biological entities) ---
+    - HMFIELD      # HuBMAP metadata field schema
+    - HRAVS        # Human Reference Atlas value sets (measurement metadata)
+    - CEDAR        # CEDAR metadata templates (data management infrastructure)
+    - RRID         # Research Resource Identifiers (lab equipment)
+    - MS           # Mass Spectrometry ontology (instrument/method types)
+    - OLAM         # Ontology for laboratory animal management (euthanasia methods)
+    - MTPEXP       # MoTrPAC expression data (study-specific rat gene nodes)
+    # --- Tiny SABs (<10 codes) — malformed imports or single-concept stubs ---
+    # 292 numeric SABs, 10 URL-fragment SABs, 22 anatomy-named tissue SABs,
+    # 10 LP/LA LOINC-style SABs, and a few others all with 1 code each.
+    # These resolve via other SABs (UBERON, CL etc) on the same Concept.
+    - LMHA
+    - XSD
+    # --- BIOMARKER: intentionally not mapped to a single entity class ---
+    # BIOMARKER codes (AA-prefixed, 183,322 codes) represent laboratory/blood
+    # biomarkers — small molecules, proteins, and other measurable entities
+    # validated as indicators of disease or phenotype state.
+    # These Concepts resolve to SM, P, G, or RNA through co-occurring Code nodes
+    # from CHEBI, UNIPROTKB, HGNC etc. Mapping BIOMARKER as a SAB would risk
+    # misclassifying entities already correctly typed by their other codes.
+    # The biomarker relationship (entity indicates disease/phenotype) is an
+    # observational association handled at the edge level, not an entity class.
+    - BIOMARKER
+
+edge_resolution:
+  non_flow_edges:
+    # --- UBKG/DDKG metadata edges ---
+    - CODE
+    - PREF_TERM
+    - PT
+    - SYN
+    - ACR
+    - DEF
+    - STY
+
+    # --- UMLS REL single-letter hierarchy/structural codes ---
+    # These are UMLS Metathesaurus REL values, not Relations Ontology.
+    # 'ro' here means UMLS "has relationship other than synonymous/narrower/broader"
+    # — a catch-all with no specific biological semantics. Not the RO ontology.
+    - chd       # has child relationship (1,583,573 edges)
+    - par       # has parent relationship (1,583,573 edges)
+    - ro        # UMLS RO — relationship other than syn/narrower/broader (782,966 edges)
+    - aq        # allowed qualifier (630,118 edges)
+    - qb        # can be qualified by (630,118 edges)
+    - rb        # has broader relationship (345,847 edges)
+    - rn        # has narrower relationship (345,847 edges)
+    - rq        # related and possibly synonymous (52,518 edges)
+    - sy        # source asserted synonymy (5,544 edges)
+
+    # --- OWL/ontology hierarchy edges ---
+    - is_a
+    - subClassOf
+    - part_of
+    - inverse_part_of
+    - related_to
+    - same_as
+    - equivalent_to
+    - isa              # UMLS variant of is_a
+    - inverse_isa
+    - refers_to        # UMLS cross-reference (7,873,154 edges — lexical)
+    - inverse_refers_to
+
+    # --- UMLS/DDKG infrastructure ---
+    - mapped_from
+    - mapped_to
+    - primary_mapped_from
+    - primary_mapped_to
+    - other_mapped_from
+    - other_mapped_to
+    - possibly_equivalent_to
+    - concept_in_subset
+    - subset_includes_concept
+    - moved_to
+    - moved_from
+    - was_a
+    - replaced_by
+    - replaces
+    - alternative_of
+    - has_alternative
+    - in_ubkg_context
+    - has_sab
+    - has_name
+    - has_download_date
+    - has_source_version
+    - has_home_url
+    - has_pipeline_shorthand
+    - has_tbl_schema
+    - has_valueset
+    - has_license
+    - has_license_type
+    - has_license_version
+    - has_license_subtype
+    - has_etl_command
+    - has_etl_owl
+    - has_dir_schema
+    - used_in_schema
+    - used_in_dataset
+    - used_in_entity
+    - used_for_dataset_type
+    - is_from_source
+    - has_source_type
+    - has_source_dictionary_url
+    - has_prefix
+    - has_datatype
+    - has_two_character_code
+    - has_active_status
+    - has_dataset_type
+    - has_topic
+    - has_provider
+    - has_vitessce_hint
+    - dataset_has_file
+    - dataset_involves_cell_type
+    - is_identifier_of
+    - citation
+    - has_citation
+    - has_description
+
+    # --- HSCLO/4DN loop metadata ---
+    - loop_has_qvalue_bin
+    - file_has_loop
+    - loop_ds_start
+    - loop_us_end
+    - inverse_loop_has_qvalue_bin
+    - inverse_file_has_loop
+    - inverse_loop_ds_start
+    - inverse_loop_us_end
+    - is_feature_type
+    - inverse_is_feature_type
+    - is_directional_form_of
+    - inverse_is_directional_form_of
+    - is_gene_biotype
+    - inverse_is_gene_biotype
+    - is_transcript_biotype
+    - inverse_is_transcript_biotype
+
+  observational_edges:
+    # Retained in conditioned graph but flagged non-propagating.
+    # GTEx co-expression edges: all 108 tissue-specific coexpression_* and
+    # inverse_coexpression_* predicates match this pattern and are handled
+    # in Python by checking whether the predicate contains 'coexpression'.
+    - coexpressed_with
+    - correlated_in
+    - not_correlated_in
+    - in_similarity_relationship_with
+    - inverse_correlated_in
+    - inverse_not_correlated_in
+    - inverse_in_similarity_relationship_with
+    - observational_association
+    - observational_inference
+    - spatial_colocalization
+    - multiomic_integration
+    - topological_proximity
+    - predicted_in
+    - not_predicted_in
+    - inverse_predicted_in
+    - inverse_not_predicted_in
+    - has_human_ortholog
+    - inverse_has_human_ortholog
+    - has_mouse_ortholog
+    - inverse_has_mouse_ortholog
+    - in_1_to_1_orthology_relationship_with
+    - inverse_in_1_to_1_orthology_relationship_with
+    - gene_associated_with_disease_or_phenotype
+    - inverse_gene_associated_with_disease_or_phenotype
+    - associated_with
+    - inverse_associated_with
+    - has_marker_gene
+    - inverse_has_marker_gene
+    - has_marker_gene_in_kidney
+    - inverse_has_marker_gene_in_kidney
+    - has_marker_gene_in_liver
+    - inverse_has_marker_gene_in_liver
+    - has_marker_gene_in_heart
+    - inverse_has_marker_gene_in_heart
+    - correlated_with_condition
+    - inverse_correlated_with_condition
+    - belongs_to_cohort
+    - inverse_belongs_to_cohort
+    - candidate_gene_tested_in
+    - inverse_candidate_gene_tested_in
+    - biomarker_tested_in
+    - inverse_biomarker_tested_in
+    - genetic_biomarker_related_to
+    - related_to_genetic_biomarker
+    - gene_disease_validity
+    - inverse_gene_disease_validity
+
+  predicate_to_flow:
+    # =========================================================
+    # IMPORTANT: All keys are DDKG edge type names (ground truth
+    # from DDKG_v2_relationships_edge_types_query.csv).
+    # ro_curie is annotation only — never used as a lookup key.
+    # RO CURIEs are provided where the DDKG edge name matches
+    # the Relations Ontology definition exactly.
+    #
+    # NOTE ON INVERSE EDGES: In DDKG, inverse_ prefixed edges are
+    # first-class graph edges present in the catalog — NOT computed
+    # by the Python. High-count inverses (>=10,000 edges) are
+    # explicitly mapped at the end of this section. Lower-count
+    # inverses fall through as unmapped and are dropped, which is
+    # acceptable given their minimal propagation contribution.
+    # =========================================================
+
+    # ---------------------------------------------------------
+    # CENTRAL DOGMA
+    # ---------------------------------------------------------
+    transcribed_from:
+      ro_curie: RO:0002510
+      flow: Transcription
+      direction: target_to_source   # RNA ← G/CH
+      classification: mechanistic
+
+    transcribed_to:
+      flow: Transcription
+      direction: source_to_target   # G/CH → RNA
+      classification: mechanistic
+
+    expressed_in:
+      ro_curie: RO:0002292
+      flow: Transcription
+      direction: source_to_target   # G/RNA → S
+      classification: mechanistic
+      note: entity-pair override resolves G→S vs RNA→S
+
+    expresses:
+      flow: Transcription
+      direction: target_to_source   # S → G/RNA (inverse)
+      classification: mechanistic
+
+    gene_encodes_gene_product:
+      flow: Translation
+      direction: source_to_target   # G → P
+      classification: mechanistic
+
+    gene_product_encoded_by_gene:
+      flow: Translation
+      direction: target_to_source   # P ← G
+      classification: mechanistic
+
+    gene_product_of:
+      flow: Translation
+      direction: target_to_source   # P ← G
+      classification: mechanistic
+
+    has_gene_product:
+      flow: Translation
+      direction: source_to_target   # G → P
+      classification: mechanistic
+
+    has_isoform:
+      flow: Translation
+      direction: source_to_target
+      classification: mechanistic
+
+    has_expression:
+      flow: Transcription
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+      note: GTEx expression association
+
+    gene_product_expressed_in_tissue:
+      flow: Transcription
+      direction: source_to_target   # P → S
+      classification: weak_mechanistic_or_observational
+
+    tissue_is_expression_site_of_gene_product:
+      flow: Transcription
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    transcriptiontranslation:
+      flow: Transcription
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    has_pro_entry:
+      flow: Translation
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    has_refseq_id:
+      flow: Translation
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    # ---------------------------------------------------------
+    # REGULATION (entity-pair dependent — see overrides)
+    # ---------------------------------------------------------
+    regulates:
+      ro_curie: RO:0000056
+      flow: Signal Transduction
+      direction: source_to_target
+      classification: mechanistic
+      note: default flow; entity-pair overrides resolve P→RNA→Protein-DNA Regulation etc.
+
+    regulated_by:
+      flow: Signal Transduction
+      direction: target_to_source
+      classification: mechanistic
+
+    positively_regulates:
+      ro_curie: RO:0002213
+      flow: Signal Transduction
+      direction: source_to_target
+      classification: mechanistic
+      note: entity-pair override resolves P→RNA to Protein-DNA Regulation
+
+    negatively_regulates:
+      ro_curie: RO:0002212
+      flow: Signal Termination
+      direction: source_to_target
+      classification: mechanistic
+
+    positively_regulated_by:
+      flow: Signal Transduction
+      direction: target_to_source
+      classification: mechanistic
+
+    negatively_regulated_by:
+      flow: Signal Termination
+      direction: target_to_source
+      classification: mechanistic
+
+    causally_influences:
+      flow: Signal Transduction
+      direction: source_to_target
+      classification: mechanistic
+
+    causally_influenced_by:
+      flow: Signal Transduction
+      direction: target_to_source
+      classification: mechanistic
+
+    regulates_levels_of:
+      flow: Signal Transduction
+      direction: source_to_target
+      classification: mechanistic
+      note: entity-pair override resolves SM→P to Molecular Signaling
+
+    involved_in_regulation_of:
+      ro_curie: RO:0002331
+      flow: Pathway Contribution
+      direction: source_to_target
+      classification: mechanistic
+
+    directedinteraction:
+      flow: Signal Transduction
+      direction: source_to_target
+      classification: mechanistic
+
+    inhibition:
+      flow: Signal Termination
+      direction: source_to_target
+      classification: mechanistic
+
+    stimulation:
+      flow: Signal Transduction
+      direction: source_to_target
+      classification: mechanistic
+
+    catalysis:
+      flow: Biochemical Transformation
+      direction: source_to_target   # P → SM (enzyme→substrate)
+      classification: mechanistic
+
+    binding:
+      flow: Protein Interaction
+      direction: bidirectional
+      classification: mechanistic
+      note: entity-pair override resolves P↔P vs RNA↔P vs SM↔P
+
+    conversion:
+      flow: Biochemical Transformation
+      direction: source_to_target   # SM → SM
+      classification: mechanistic
+
+    regulates_transcription:
+      flow: Protein-DNA Regulation
+      direction: source_to_target   # P/CM + CH → RNA
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # MOLECULAR INTERACTIONS
+    # ---------------------------------------------------------
+    molecularly_interacts_with:
+      ro_curie: RO:0002434
+      flow: Protein Interaction
+      direction: bidirectional
+      classification: mechanistic
+      note: entity-pair overrides resolve P↔P, RNA↔P, P↔CH, RNA↔RNA
+
+    interacts_with:
+      flow: Protein Interaction
+      direction: bidirectional
+      classification: mechanistic
+      note: entity-pair overrides apply
+
+    binds:
+      flow: Protein Interaction
+      direction: bidirectional
+      classification: mechanistic
+
+    phosphorylates:
+      flow: Signal Transduction
+      direction: source_to_target   # P(kinase) → P(substrate)
+      classification: mechanistic
+
+    dephosphorylates:
+      flow: Signal Termination
+      direction: source_to_target
+      classification: mechanistic
+
+    ubiquitinates:
+      flow: Proteasomal Processing
+      direction: source_to_target
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # BIOCHEMICAL TRANSFORMATION
+    # ---------------------------------------------------------
+    has_input:
+      ro_curie: RO:0002233
+      flow: Biochemical Transformation
+      direction: target_to_source   # process ← SM substrate
+      classification: mechanistic
+
+    input_of:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+
+    has_output:
+      ro_curie: RO:0002234
+      flow: Biochemical Transformation
+      direction: source_to_target   # process → SM product
+      classification: mechanistic
+
+    output_of:
+      flow: Biochemical Transformation
+      direction: target_to_source
+      classification: mechanistic
+
+    has_primary_input:
+      flow: Biochemical Transformation
+      direction: target_to_source
+      classification: mechanistic
+
+    has_primary_output:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+
+    has_specified_input:
+      flow: Biochemical Transformation
+      direction: target_to_source
+      classification: mechanistic
+
+    has_specified_output:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+
+    synthesized_by:
+      flow: Biochemical Transformation
+      direction: target_to_source   # SM ← P enzyme
+      classification: mechanistic
+
+    is_conjugate_acid_of:
+      flow: Biochemical Transformation
+      direction: bidirectional
+      classification: mechanistic
+
+    is_conjugate_base_of:
+      flow: Biochemical Transformation
+      direction: bidirectional
+      classification: mechanistic
+
+    is_enantiomer_of:
+      flow: Biochemical Transformation
+      direction: bidirectional
+      classification: mechanistic
+
+    is_tautomer_of:
+      flow: Biochemical Transformation
+      direction: bidirectional
+      classification: mechanistic
+
+    has_functional_parent:
+      flow: Biochemical Transformation
+      direction: target_to_source
+      classification: mechanistic
+
+    has_parent_hydride:
+      flow: Biochemical Transformation
+      direction: target_to_source
+      classification: mechanistic
+
+    derives_from:
+      ro_curie: RO:0001000
+      flow: Biochemical Transformation
+      direction: target_to_source
+      classification: mechanistic
+
+    derives_into:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+
+    composed_primarily_of:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+
+    chemical_or_drug_affects_gene_product:
+      flow: Perturbational Effect
+      direction: source_to_target   # SM → P
+      classification: mechanistic
+
+    gene_product_affected_by_chemical_or_drug:
+      flow: Perturbational Effect
+      direction: target_to_source
+      classification: mechanistic
+
+    chemical_or_drug_initiates_biological_process:
+      flow: Perturbational Effect
+      direction: source_to_target   # SM → PW
+      classification: mechanistic
+
+    chemical_or_drug_is_product_of_biological_process:
+      flow: Biochemical Transformation
+      direction: target_to_source   # SM ← PW
+      classification: mechanistic
+
+    biological_process_has_result_chemical_or_drug:
+      flow: Biochemical Transformation
+      direction: source_to_target   # PW → SM
+      classification: weak_mechanistic_or_observational
+
+    biological_process_involves_chemical_or_drug:
+      flow: Pathway Contribution
+      direction: bidirectional
+      classification: weak_mechanistic_or_observational
+
+    # ---------------------------------------------------------
+    # PATHWAY / PROCESS CONTRIBUTION
+    # ---------------------------------------------------------
+    involved_in:
+      ro_curie: RO:0002331
+      flow: Pathway Contribution
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    involved_in_pathway:
+      flow: Pathway Contribution
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    gene_plays_role_in_process:
+      flow: Pathway Contribution
+      direction: source_to_target   # G → PW
+      classification: weak_mechanistic_or_observational
+
+    process_involves_gene:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    gene_product_plays_role_in_biological_process:
+      flow: Pathway Contribution
+      direction: source_to_target   # P → PW
+      classification: weak_mechanistic_or_observational
+
+    biological_process_involves_gene_product:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    gene_is_element_in_pathway:
+      flow: Pathway Contribution
+      direction: source_to_target   # G → PW
+      classification: weak_mechanistic_or_observational
+
+    pathway_has_gene_element:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    gene_product_is_element_in_pathway:
+      flow: Pathway Contribution
+      direction: source_to_target   # P → PW
+      classification: weak_mechanistic_or_observational
+
+    has_gene_product_element:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    has_go_term:
+      flow: Pathway Contribution
+      direction: source_to_target   # P/G → PW
+      classification: weak_mechanistic_or_observational
+
+    has_signature_gene:
+      flow: Pathway Contribution
+      direction: target_to_source   # PW/C has signature G
+      classification: weak_mechanistic_or_observational
+
+    pathway_associated_with_gene:
+      flow: Pathway Contribution
+      direction: target_to_source   # PW → G
+      classification: weak_mechanistic_or_observational
+
+    inverse_pathway_associated_with_gene:
+      flow: Pathway Contribution
+      direction: source_to_target   # G → PW
+      classification: weak_mechanistic_or_observational
+
+    biological_process_has_result_biological_process:
+      ro_curie: RO:0002264
+      flow: Pathway Contribution
+      direction: source_to_target   # PW → PW
+      classification: weak_mechanistic_or_observational
+
+    biological_process_is_part_of_process:
+      ro_curie: RO:0000050
+      flow: Pathway Contribution
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    biological_process_has_associated_location:
+      flow: Pathway Contribution
+      direction: source_to_target   # PW → S
+      classification: weak_mechanistic_or_observational
+
+    biological_process_has_initiator_process:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    biological_process_has_result_anatomy:
+      flow: State Progression
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    biological_process_has_initiator_chemical_or_drug:
+      flow: Molecular Signaling
+      direction: target_to_source   # PW ← SM initiator
+      classification: weak_mechanistic_or_observational
+
+    gene_product_has_biochemical_function:
+      flow: Pathway Contribution
+      direction: source_to_target   # P → PW
+      classification: weak_mechanistic_or_observational
+
+    gene_product_has_associated_anatomy:
+      flow: Pathway Contribution
+      direction: source_to_target   # P → S
+      classification: weak_mechanistic_or_observational
+
+    gene_product_has_structural_domain_or_motif:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    gene_product_has_chemical_classification:
+      flow: Pathway Contribution
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    is_glycotransferase:
+      flow: Pathway Contribution
+      direction: source_to_target   # G → PW
+      classification: mechanistic
+
+    has_small_molecule_activator:
+      flow: Perturbational Effect
+      direction: target_to_source   # target ← SM activator
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # PERTURBATIONAL / DRUG-TARGET
+    # ---------------------------------------------------------
+    bioactivity:
+      flow: Perturbational Effect
+      direction: source_to_target   # SM → P/RNA target
+      classification: mechanistic
+
+    targets_expression_of_gene:
+      flow: Perturbational Effect
+      direction: source_to_target   # SM → G/RNA
+      classification: mechanistic
+
+    inverse_targets_expression_of_gene:
+      flow: Perturbational Effect
+      direction: target_to_source
+      classification: mechanistic
+
+    positively_correlated_with_gene:
+      flow: Perturbational Effect
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    negatively_correlated_with_gene:
+      flow: Perturbational Effect
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    positively_correlated_with_chemical_or_drug:
+      flow: Perturbational Effect
+      direction: bidirectional
+      classification: weak_mechanistic_or_observational
+      note: Gene↔Drug LINCS correlation
+
+    negatively_correlated_with_chemical_or_drug:
+      flow: Perturbational Effect
+      direction: bidirectional
+      classification: weak_mechanistic_or_observational
+
+    # ---------------------------------------------------------
+    # PHENOTYPE / DISEASE
+    # ---------------------------------------------------------
+    has_phenotype:
+      ro_curie: RO:0002200
+      flow: Molecular → Phenotype
+      direction: source_to_target
+      classification: mechanistic
+      note: entity-pair overrides resolve C→PH, P→PH, G→PH
+
+    phenotype_of:
+      flow: Molecular → Phenotype
+      direction: target_to_source
+      classification: mechanistic
+
+    gene_associated_with_disease_or_phenotype:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_associated_with_disease:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    disease_has_associated_gene:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    disease_mapped_to_gene:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_mapped_to_disease:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    has_variant_associated_with_disease:
+      flow: Genetic Regulatory Modulation
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    _indicates_risk_of_developing:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    indicated_by_presence_of:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    indicated_by_above_normal_level_of:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    indicated_by_below_normal_level_of:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    genetic_biomarker_related_to:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_product_is_biomarker_of:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_product_is_biomarker_type:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_is_biomarker_of:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_is_biomarker_type:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    biomarker_type_includes_gene:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+
+    biomarker_type_includes_gene_product:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+
+    disease_has_molecular_abnormality:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    disease_has_basis_in:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    disease_causing_germline_mutation_s__in:
+      flow: Genetic Regulatory Modulation
+      direction: target_to_source   # disease ← G(variant)
+      classification: observational
+
+    disease_causing_somatic_mutation_s__in:
+      flow: Genetic Regulatory Modulation
+      direction: target_to_source
+      classification: observational
+
+    has_material_basis_in_germline_mutation_in:
+      flow: Genetic Regulatory Modulation
+      direction: target_to_source
+      classification: observational
+
+    gene_disease_validity:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    major_susceptibility_factor_in:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    predisposes_towards:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    part_of_a_fusion_gene_in:
+      flow: Genetic Regulatory Modulation
+      direction: source_to_target
+      classification: mechanistic
+
+    gene_involved_in_pathogenesis_of_disease:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_involved_in_molecular_abnormality:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    gene_has_abnormality:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    abnormality_associated_with_allele:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    allele_has_activity:
+      flow: Genetic Regulatory Modulation
+      direction: source_to_target
+      classification: mechanistic
+
+    allele_plays_altered_role_in_process:
+      flow: Genetic Regulatory Modulation
+      direction: source_to_target
+      classification: mechanistic
+
+    gene_mutant_encodes_gene_product_sequence_variation:
+      flow: Genetic Regulatory Modulation
+      direction: source_to_target
+      classification: mechanistic
+
+    associated_with:
+      flow: Observational Association
+      direction: bidirectional
+      classification: observational
+
+    # ---------------------------------------------------------
+    # CHROMATIN / GENOMIC TOPOLOGY
+    # ---------------------------------------------------------
+    has_best_classification:
+      flow: Chromatin Topology
+      direction: source_to_target   # ENCODE CCRE → CH class
+      classification: weak_mechanistic_or_observational
+
+    overlaps:
+      ro_curie: RO:0002131
+      flow: Spatial constraint
+      direction: bidirectional
+      classification: contextual_constraint
+
+    us_5_prime:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: nonpropagating_context
+
+    ds_3_prime:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: nonpropagating_context
+
+    loop_us_start:
+      flow: Chromatin Topology
+      direction: source_to_target
+      classification: mechanistic
+
+    loop_ds_end:
+      flow: Chromatin Topology
+      direction: source_to_target
+      classification: mechanistic
+
+    precedes_1kbp_band:   {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    precedes_10kbp_band:  {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    precedes_100kbp_band: {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    precedes_1mbp_band:   {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    above_1kbp_band:      {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    above_10kbp_band:     {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    above_100kbp_band:    {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+    above_1mbp_band:      {flow: Spatial constraint, direction: source_to_target, classification: nonpropagating_context}
+
+    chr_band_contains_gene:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    gene_has_physical_location:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    gene_in_chromosomal_location:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    # ---------------------------------------------------------
+    # SPATIAL / TRANSPORT / LOCALISATION
+    # ---------------------------------------------------------
+    located_in:
+      ro_curie: RO:0001025
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    location_of:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: contextual_constraint
+
+    occurs_in:
+      ro_curie: BFO:0000066
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    transports:
+      flow: Intracellular Transport
+      direction: source_to_target
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # PROTEIN FEATURES / GLYCOBIOLOGY
+    # ---------------------------------------------------------
+    has_canonical_residue:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    has_amino_acid:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    has_saccharide:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    has_glycosequence:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    glycosylated_at:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: mechanistic
+
+    has_motif:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    glycosylation_type_site:
+      flow: Protein Interaction
+      direction: source_to_target
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # COMPLEX FORMATION
+    # ---------------------------------------------------------
+    complex_has_physical_part:
+      flow: Complex Formation
+      direction: source_to_target   # CM → P
+      classification: mechanistic
+
+    gene_product_is_physical_part_of:
+      flow: Complex Formation
+      direction: source_to_target   # P → CM
+      classification: mechanistic
+
+    has_component:
+      flow: Complex Formation
+      direction: source_to_target   # CM → P
+      classification: mechanistic
+      note: entity-pair override confirms CM→P
+
+    component_of:
+      flow: Complex Formation
+      direction: target_to_source   # P → CM
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # DEVELOPMENTAL / TEMPORAL
+    # ---------------------------------------------------------
+    develops_from:
+      ro_curie: RO:0002202
+      flow: State Progression
+      direction: target_to_source
+      classification: mechanistic
+
+    develops_into:
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    developmentally_contributes_to:
+      ro_curie: RO:0002254
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    matures_from:
+      flow: State Progression
+      direction: target_to_source
+      classification: mechanistic
+
+    matures_into:
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    transformation_of:
+      flow: State Progression
+      direction: target_to_source
+      classification: mechanistic
+
+    transforms_from:
+      flow: State Progression
+      direction: target_to_source
+      classification: mechanistic
+
+    transforms_into:
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    results_in_development_of:
+      ro_curie: RO:0003001
+      flow: State Progression
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    results_in_morphogenesis_of:
+      flow: State Progression
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    results_in_maturation_of:
+      flow: State Progression
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    existence_starts_during:
+      ro_curie: RO:0002490
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    existence_ends_during:
+      ro_curie: RO:0002491
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    happens_during:
+      ro_curie: RO:0002092
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    occurs_after:
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    occurs_before:
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    immediately_preceded_by:
+      flow: State Progression
+      direction: target_to_source
+      classification: mechanistic
+
+    immediately_precedes:
+      flow: State Progression
+      direction: source_to_target
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # ORTHOLOGY / GENOMIC
+    # ---------------------------------------------------------
+    has_human_ortholog:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    has_mouse_ortholog:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    in_1_to_1_orthology_relationship_with:
+      flow: Observational Association
+      direction: bidirectional
+      classification: observational
+
+    gene_found_in_organism:
+      ro_curie: RO:0002162
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    # ---------------------------------------------------------
+    # CELL TYPE / MARKER GENES (all observational)
+    # ---------------------------------------------------------
+    has_marker_gene:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    has_marker_gene_in_kidney:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    has_marker_gene_in_liver:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    has_marker_gene_in_heart:
+      flow: Observational Association
+      direction: source_to_target
+      classification: observational
+
+    # ---------------------------------------------------------
+    # KIDS FIRST
+    # ---------------------------------------------------------
+    gene_has_variants:
+      flow: Genetic Regulatory Modulation
+      direction: source_to_target   # G → G(variant)
+      classification: mechanistic
+
+    # ---------------------------------------------------------
+    # ANATOMICAL SPATIAL (contextual constraint, non-propagating)
+    # ---------------------------------------------------------
+    adjacent_to:
+      ro_curie: RO:0002220
+      flow: Spatial constraint
+      direction: bidirectional
+      classification: contextual_constraint
+
+    continuous_with:
+      ro_curie: RO:0002150
+      flow: Spatial constraint
+      direction: bidirectional
+      classification: contextual_constraint
+
+    regional_part_of:
+      ro_curie: RO:0002433
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    innervates:
+      ro_curie: RO:0002134
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    innervated_by:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: contextual_constraint
+
+    has_nerve_supply:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    has_arterial_supply:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    has_venous_drainage:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    has_lymphatic_drainage:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    tributary_of:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    drains:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    supplies:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    attaches_to:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    has_soma_location:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    projects_to:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    axon_synapses_in:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    channels_from:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    channels_into:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    channel_for:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+    conduit_for:
+      flow: Spatial constraint
+      direction: source_to_target
+      classification: contextual_constraint
+
+
+    # ---------------------------------------------------------
+    # INVERSE EDGES — explicitly present in DDKG as first-class edges
+    # NOTE: In DDKG, inverse_ edges are real graph edges, not computed.
+    # They must be mapped explicitly. Same flow as forward; direction inverted.
+    # ---------------------------------------------------------
+
+    # Biochemical Transformation
+    inverse_synthesized_by:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+    inverse_has_functional_parent:
+      flow: Biochemical Transformation
+      direction: source_to_target
+      classification: mechanistic
+
+    # Chromatin Topology
+    inverse_loop_ds_end:
+      flow: Chromatin Topology
+      direction: target_to_source
+      classification: mechanistic
+    inverse_loop_us_start:
+      flow: Chromatin Topology
+      direction: target_to_source
+      classification: mechanistic
+    inverse_has_best_classification:
+      flow: Chromatin Topology
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    # Genetic Regulatory Modulation
+    inverse_has_variant_associated_with_disease:
+      flow: Genetic Regulatory Modulation
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_gene_has_variants:
+      flow: Genetic Regulatory Modulation
+      direction: target_to_source
+      classification: mechanistic
+
+    # Observational Association
+    inverse_associated_with:
+      flow: Observational Association
+      direction: bidirectional
+      classification: observational
+    inverse__indicates_risk_of_developing:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+    inverse_indicated_by_presence_of:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+    inverse_has_marker_gene:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+    inverse_in_1_to_1_orthology_relationship_with:
+      flow: Observational Association
+      direction: bidirectional
+      classification: observational
+    inverse_gene_associated_with_disease_or_phenotype:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+    inverse_has_human_ortholog:
+      flow: Observational Association
+      direction: target_to_source
+      classification: observational
+
+    # Pathway Contribution
+    inverse_involved_in:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_has_go_term:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_involved_in_pathway:
+      flow: Pathway Contribution
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    # Perturbational Effect
+    inverse_positively_correlated_with_chemical_or_drug:
+      flow: Perturbational Effect
+      direction: bidirectional
+      classification: weak_mechanistic_or_observational
+    inverse_negatively_correlated_with_chemical_or_drug:
+      flow: Perturbational Effect
+      direction: bidirectional
+      classification: weak_mechanistic_or_observational
+    inverse_bioactivity:
+      flow: Perturbational Effect
+      direction: target_to_source
+      classification: mechanistic
+
+    # Protein Interaction
+    inverse_molecularly_interacts_with:
+      flow: Protein Interaction
+      direction: bidirectional
+      classification: mechanistic
+    inverse_interacts_with:
+      flow: Protein Interaction
+      direction: bidirectional
+      classification: mechanistic
+    inverse_has_glycosequence:
+      flow: Protein Interaction
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_has_canonical_residue:
+      flow: Protein Interaction
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_glycosylated_at:
+      flow: Protein Interaction
+      direction: target_to_source
+      classification: mechanistic
+    inverse_has_amino_acid:
+      flow: Protein Interaction
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_has_saccharide:
+      flow: Protein Interaction
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_has_motif:
+      flow: Protein Interaction
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    # Spatial constraint
+    inverse_above_1kbp_band:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_precedes_1kbp_band:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_overlaps:
+      flow: Spatial constraint
+      direction: bidirectional
+      classification: contextual_constraint
+    inverse_above_10kbp_band:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_precedes_10kbp_band:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_ds_3_prime:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_us_5_prime:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_above_100kbp_band:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_precedes_100kbp_band:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: nonpropagating_context
+    inverse_chr_band_contains_gene:
+      flow: Spatial constraint
+      direction: target_to_source
+      classification: contextual_constraint
+
+    # Transcription
+    inverse_has_expression:
+      flow: Transcription
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+
+    # Translation
+    inverse_has_refseq_id:
+      flow: Translation
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+    inverse_has_pro_entry:
+      flow: Translation
+      direction: target_to_source
+      classification: weak_mechanistic_or_observational
+  entity_pair_overrides:
+    # =========================================================
+    # Classification field is REQUIRED — Python reads it from YAML.
+    # Overrides take precedence over predicate_to_flow defaults.
+    # These resolve ambiguous predicates where flow class depends
+    # on the biological entity types of source and target.
+    # =========================================================
+
+    # --- regulates: entity-pair dependent flow class ---
+    - source_entity: P
+      target_entity: P
+      predicate: regulates
+      flow: Signal Transduction
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: regulates
+      flow: Protein-DNA Regulation
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: CH
+      predicate: regulates
+      flow: Epigenetic Modification
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: PW
+      predicate: regulates
+      flow: Pathway Contribution
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: RNA
+      predicate: regulates
+      flow: RNA Regulation
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: P
+      predicate: regulates
+      flow: Translation Support
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: P
+      predicate: regulates
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: RNA
+      predicate: regulates
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: CH
+      predicate: regulates
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: CH
+      target_entity: RNA
+      predicate: regulates
+      flow: Chromatin Control
+      classification: mechanistic
+
+    # --- positively_regulates: entity-pair dependent ---
+    - source_entity: P
+      target_entity: P
+      predicate: positively_regulates
+      flow: Signal Transduction
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: positively_regulates
+      flow: Protein-DNA Regulation
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: CH
+      predicate: positively_regulates
+      flow: Epigenetic Modification
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: PW
+      predicate: positively_regulates
+      flow: Pathway Contribution
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: RNA
+      predicate: positively_regulates
+      flow: RNA Regulation
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: P
+      predicate: positively_regulates
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: RNA
+      predicate: positively_regulates
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: CH
+      target_entity: RNA
+      predicate: positively_regulates
+      flow: Chromatin Control
+      classification: mechanistic
+
+    # --- negatively_regulates: entity-pair dependent ---
+    - source_entity: P
+      target_entity: P
+      predicate: negatively_regulates
+      flow: Signal Termination
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: negatively_regulates
+      flow: Protein-DNA Regulation
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: PW
+      predicate: negatively_regulates
+      flow: Negative Feedback
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: RNA
+      predicate: negatively_regulates
+      flow: RNA Silencing (repression)
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: P
+      predicate: negatively_regulates
+      flow: RNA Silencing (repression)
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: P
+      predicate: negatively_regulates
+      flow: Signal Termination
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: RNA
+      predicate: negatively_regulates
+      flow: RNA Silencing (repression)
+      classification: mechanistic
+
+    # --- molecularly_interacts_with: entity-pair dependent ---
+    - source_entity: P
+      target_entity: P
+      predicate: molecularly_interacts_with
+      flow: Protein Interaction
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: molecularly_interacts_with
+      flow: RNA-Protein Binding
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: P
+      predicate: molecularly_interacts_with
+      flow: RNA-Protein Binding
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: RNA
+      predicate: molecularly_interacts_with
+      flow: RNA-RNA Binding
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: CH
+      predicate: molecularly_interacts_with
+      flow: Protein-DNA Regulation
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: P
+      predicate: molecularly_interacts_with
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: RNA
+      predicate: molecularly_interacts_with
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    # --- interacts_with: entity-pair dependent ---
+    - source_entity: P
+      target_entity: P
+      predicate: interacts_with
+      flow: Protein Interaction
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: interacts_with
+      flow: RNA-Protein Binding
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: P
+      predicate: interacts_with
+      flow: RNA-Protein Binding
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: RNA
+      predicate: interacts_with
+      flow: RNA-RNA Binding
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: P
+      predicate: interacts_with
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    # --- binding: entity-pair dependent ---
+    - source_entity: P
+      target_entity: P
+      predicate: binding
+      flow: Protein Interaction
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: binding
+      flow: RNA-Protein Binding
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: CH
+      predicate: binding
+      flow: Protein-DNA Regulation
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: P
+      predicate: binding
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    # --- regulates_levels_of: entity-pair dependent ---
+    - source_entity: SM
+      target_entity: P
+      predicate: regulates_levels_of
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: SM
+      target_entity: RNA
+      predicate: regulates_levels_of
+      flow: Molecular Signaling
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: RNA
+      predicate: regulates_levels_of
+      flow: Protein-DNA Regulation
+      classification: mechanistic
+
+    # --- has_phenotype: entity-pair dependent ---
+    - source_entity: C
+      target_entity: PH
+      predicate: has_phenotype
+      flow: Cell → Phenotype
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: PH
+      predicate: has_phenotype
+      flow: Molecular → Phenotype
+      classification: mechanistic
+
+    - source_entity: G
+      target_entity: PH
+      predicate: has_phenotype
+      flow: Molecular → Phenotype
+      classification: weak_mechanistic_or_observational
+
+    - source_entity: PW
+      target_entity: PH
+      predicate: has_phenotype
+      flow: Molecular → Phenotype
+      classification: mechanistic
+
+    # --- complex formation ---
+    - source_entity: CM
+      target_entity: P
+      predicate: has_component
+      flow: Complex Formation
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: CM
+      predicate: component_of
+      flow: Complex Formation
+      classification: mechanistic
+
+    # --- perturbational overrides ---
+    - source_entity: SM
+      target_entity: RNA
+      predicate: positively_correlated_with_gene
+      flow: Perturbational Effect
+      classification: weak_mechanistic_or_observational
+
+    - source_entity: SM
+      target_entity: P
+      predicate: positively_correlated_with_gene
+      flow: Perturbational Effect
+      classification: weak_mechanistic_or_observational
+
+    - source_entity: G
+      target_entity: DS
+      predicate: gene_associated_with_disease_or_phenotype
+      flow: Observational Association
+      classification: observational
+
+    # --- expressed_in: entity-pair dependent ---
+    - source_entity: G
+      target_entity: S
+      predicate: expressed_in
+      flow: Transcription
+      classification: mechanistic
+
+    - source_entity: RNA
+      target_entity: S
+      predicate: expressed_in
+      flow: Transcription
+      classification: mechanistic
+
+    - source_entity: P
+      target_entity: S
+      predicate: expressed_in
+      flow: Intracellular Transport
+      classification: mechanistic
+
+control_modes:
+  # Documents intended semantics of each benchmark arm.
+  # Python implements these; this section is for reproducibility auditing.
+  raw:
+    description: No filtering. All concept-to-concept edges, uniform weight 0.5.
+    filter_non_flow: false
+    filter_observational: false
+    filter_by_entity_pair: false
+
+  metadata_filtered:
+    description: >
+      Remove metadata/hierarchy edges (CODE, is_a, part_of, etc.).
+      Retain all remaining edges as propagating, including observational.
+      Edges are NOT reoriented from YAML direction fields — direction is
+      inherited from the raw export. This arm isolates the effect of
+      annotation noise removal, independently of biological admissibility.
+    filter_non_flow: true
+    filter_observational: false
+    filter_by_entity_pair: false
+
+  conditioned:
+    description: >
+      Full BIFO conditioning. Mechanistic edges propagate;
+      observational edges retained but non-propagating.
+    filter_non_flow: true
+    filter_observational: true
+    filter_by_entity_pair: true
+
+  random_sparsified:
+    description: >
+      Randomly sample conditioned edge count from RAW concept-to-concept edges.
+      Tests edge-count reduction in isolation.
+      Pool is raw_concept_edges, not metadata_filtered edges.
+    random_seed: 1
+    sample_from: raw_concept_edges
+
+state_defaults:
+  G:     {kind: gene_or_variant, active: null}
+  CH:    {accessibility: null, methylation: null, histone_modifications: null, 3D_topology: null}
+  RNA:   {role: null, abundance: null, stability: null, translation_state: null, processing_state: null, location: null}
+  P:     {identity: null, PTM_state: null, activity: null, location: null}
+  CM:    {composition: null, activity_state: null, location: null}
+  SM:    {identity: null, role: null, concentration: null, redox_state: null}
+  ION:   {species: null, concentration: null, gradient: null, membrane_potential: null}
+  C:     {chromatin_attractor: null, functional_state: null, cell_cycle_state: null}
+  S:     {macro_anatomy: null, subcellular_compartment: null, extracellular_region: null, boundary_role: null}
+  PH:    {label: null}
+  DS:    {label: null}
+  X:     {identity: null, mechanism: null, target_entity: null, concentration_range: null, evidence_source: null}
+  MECH:  {force: null, stiffness: null, tension: null, geometry: null}
+
+ddkg_notes:
+  concept_backbone: >
+    Traversal over Concept-to-Concept edges only.
+    Code/Term edges are metadata; exclude from propagation.
+    Term nodes carrying human-readable labels attach to Concept nodes
+    via PREF_TERM, not to Code nodes.
+  kfpt: >
+    KFPT nodes carry Kids First variant burden scores.
+    Mapped to G (variant) for entity resolution and seed construction.
+    Use value field as confidence proxy where available.
+  hsclo: >
+    HSCLO/HSCLO38 nodes are spatial scaffold. Act as context constraints;
+    do not use as long-range propagation carriers.
+  go_subontology: >
+    GO terms require subontology disambiguation. Python checks OBO namespace
+    (primary path) then row-level heuristic (fallback). Default: PW.
+    Download OBO: wget https://purl.obolibrary.org/obo/go.obo
+  biomarker: >
+    BIOMARKER SAB (183,322 codes, AA-prefixed IDs) represents laboratory and
+    blood biomarkers — measurable entities validated as disease/phenotype
+    indicators. Not mapped to a single BIFO entity class because the underlying
+    entities (proteins, small molecules, genes) resolve correctly through
+    co-occurring CHEBI/UNIPROTKB/HGNC codes. The biomarker relationship is
+    an observational association at the edge level, not an entity class.
+  semantic_limitations: >
+    IMPORTANT FOR REVIEWERS: The "mechanistic" classification in this mapping
+    indicates that the edge represents a directed biological transformation
+    suitable for propagation under BIFO constraints — it does NOT assert
+    experimental proof of causality.
+    Specifically: (1) Edge labels reflect normalized predicate names from UMLS
+    RELA and source ontologies; the underlying evidence varies by source SAB
+    (experimental, curated, inferred, or predicted). (2) Evidence strength is
+    handled separately through the edge weighting system: experimental=1.0,
+    curated=0.75, inferred=0.5, predicted=0.25. (3) "Mechanistic" means the
+    edge represents a directed biological transformation that is admissible
+    for forward propagation under BIFO constraints — not that the relationship
+    has been verified by a causal experiment in the source data. (4) Edges
+    from probabilistic sources (STRING, LINCS correlation) or literature-
+    inferred annotations (GO, Reactome) are classified as
+    weak_mechanistic_or_observational and receive lower default weights.
+    This distinction between semantic admissibility and experimental proof
+    is explicit in the BIFO specification and should be described as such
+    in the Methods section of any paper using this mapping.
+  ro_predicates: >
+    IMPORTANT: Edges with r.SAB = 'RO' in DDKG originate from UMLS REL=RO,
+    which means "has relationship other than synonymous, narrower, or broader"
+    — a catch-all bucket with no specific biological semantics. These are
+    NOT Relations Ontology (RO) predicates and are excluded from mechanistic
+    flow modeling (listed in non_flow_edges as 'ro').
+    The Relations Ontology proper does not appear as CURIEs in DDKG edges.
+    Instead, RO semantics enter through RELA-derived edge names
+    (e.g. expressed_in, regulates, molecularly_interacts_with) which carry
+    RO-equivalent meaning. The ro_curie annotation fields in predicate_to_flow
+    document this equivalence for reference but are never used as lookup keys —
+    all matching is done on the DDKG edge name string.
+  dgn_sabs: >
+    All DGN* SABs (DGNBM, DGNCM, DGNCR, DGNFU, DGNGCM, DGNGDA, DGNGMM,
+    DGNGV, DGNMM, DGNSCM, DGNSM, DGNTH, DGNV, DGNAGE) contain PubMed abstract
+    sentences as their PREF_TERM names. These are DisGeNET evidence provenance
+    records, not biological entities. All ignored. The biological content they
+    support (genes, diseases, variants) resolves via HGNC, MONDO, HPO, DBSNP.
+  tiny_sabs: >
+    The new DDKG build (v2) contains ~337 SABs with fewer than 10 codes each.
+    These are: ~292 numeric IDs (e.g. 403620), ~10 URL-fragment SABs
+    (GENEREPORT?ID=49845), ~22 anatomy tissue-named SABs
+    (KIDNEY-NEPHRON, LUNG-PULMONARY-ALVEOLUS etc), ~10 LP/LA LOINC-style
+    codes, and a handful of others (LMHA, XSD). All have 1-3 codes and their
+    Concepts will resolve via other SABs (UBERON, CL, HGNC etc) already
+    mapped. The Python resolve_code_entity function handles these by simply
+    returning None (no match), causing them to fall through to other Code
+    nodes on the same Concept. No explicit listing in ignored_or_auxiliary_sabs
+    is required for these — they are harmless non-matches.
+    MMSET1, MMSET2CN, MMSET4 are Mus musculus neuroanatomical connectivity
+    descriptions (ganglion-to-organ pathways). Mapped to S.
+    MMSL and MMX are MeSH chemical records. Mapped to SM.
+    GS codes are MeSH substance records (chemicals), not gene IDs. Mapped to SM.
+    NPOKB codes are Allen Cell Types (mouse neuron descriptions). Mapped to C.

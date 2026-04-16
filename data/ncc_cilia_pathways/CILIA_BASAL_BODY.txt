@@ -1,0 +1,36 @@
+# CILIA_BASAL_BODY
+# Basal body distal appendage and ciliogenesis
+# Source: Stundl et al. 2026 Nat Rev Mol Cell Biol; Klena et al. 2017 Cold Spring Harb Perspect Biol
+# N_genes: 30
+# Format: HGNC gene symbol (requires CUI mapping before use in pipeline)
+#
+ALMS1
+CENPF
+CEP19
+CEP41
+CEP78
+CEP104
+CEP120
+CSPP1
+C2CD3
+FAM161A
+HYLS1
+INTU
+NEK1
+NEK2
+NEK9
+NME7
+OCRL
+OFD1
+PLK4
+POC1A
+POC1B
+TTBK2
+WDPCP
+CEP83
+CEP164
+SCLT1
+CCDC28B
+CFAP53
+CPLANE1
+AHI1

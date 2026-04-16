@@ -1,0 +1,13 @@
+# NCC_CELL_CYCLE_SURVIVAL
+# Neural crest cell cycle and survival
+# Source: Stundl et al. 2026 Nat Rev Mol Cell Biol; Klena et al. 2017 Cold Spring Harb Perspect Biol
+# N_genes: 7
+# Format: HGNC gene symbol (requires CUI mapping before use in pipeline)
+#
+MYC
+ID3
+CDKN1A
+CCND1
+CCND2
+SOX9
+SNAI1

@@ -1,0 +1,15 @@
+# NPB_FGF
+# Neural plate border FGF signaling
+# Source: Stundl et al. 2026 Nat Rev Mol Cell Biol; Klena et al. 2017 Cold Spring Harb Perspect Biol
+# N_genes: 9
+# Format: HGNC gene symbol (requires CUI mapping before use in pipeline)
+#
+FGF2
+FGF3
+FGF8
+FGFR1
+FGFR2
+FGFR3
+FRS2
+MAPK1
+MAPK3

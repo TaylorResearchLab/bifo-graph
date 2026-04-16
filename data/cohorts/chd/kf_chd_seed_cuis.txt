@@ -1,0 +1,9 @@
+# Cohort variant-derived seeds
+# Source: kf_chd_seeds.txt
+# Graph: kf_chd_nodes.csv
+# Found: 4/56 genes
+#
+C1412110  # ACADVL [n_cases=4]
+C1416779  # LAMA5 [n_cases=3]
+C0242988  # THRB [n_cases=3]
+C1366645  # CD36 [n_cases=3]

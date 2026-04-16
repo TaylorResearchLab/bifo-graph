@@ -1,0 +1,34 @@
+# NCC_CILIA_SIGNALING
+# Neural crest primary cilium developmental signaling
+# Source: Stundl et al. 2026 Nat Rev Mol Cell Biol; Klena et al. 2017 Cold Spring Harb Perspect Biol
+# N_genes: 28
+# Format: HGNC gene symbol (requires CUI mapping before use in pipeline)
+#
+PTCH1
+SMO
+GLI2
+GLI3
+SUFU
+KIF7
+GPR161
+ARL13B
+INPP5E
+RAB23
+PKD1
+PKD2
+PKD1L1
+PKHD1
+PTK7
+PRICKLE1
+VANGL2
+DVL1
+DVL2
+DVL3
+SMAD2
+SMAD3
+SMAD4
+SMAD6
+LRP2
+SNX17
+DNM2
+AP2B1

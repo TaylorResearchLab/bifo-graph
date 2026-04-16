@@ -1,0 +1,21 @@
+# Regenerable interim files
+*.csv
+!data/cohorts/**/*.csv.zip
+!results/**/*.csv.zip
+
+# Large binary results (regenerable via run_conditioning.sh)
+# results_kept_edges.csv.zip is kept — it's compressed and < 100MB
+results_scores_*.npy
+
+# macOS
+.DS_Store
+__MACOSX/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editors
+.vscode/
+.idea/

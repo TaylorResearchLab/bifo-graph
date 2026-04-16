@@ -18,6 +18,7 @@
 set -euo pipefail
 
 COHORT="${1:-chd}"
+SEEDS="${2:-maf001}"   # maf001 (default/recommended) | maf01 | "" (original 56-gene list)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "============================================================"
@@ -25,7 +26,7 @@ echo "Seed CUI lookup for cohort: $COHORT"
 echo "============================================================"
 
 python3 "$SCRIPT_DIR/seed_cui_lookup.py" \
-    --gene-list  "kf_${COHORT}_seeds.txt" \
+    --gene-list  "kf_${COHORT}_seeds${SEEDS:+_${SEEDS}}.txt" \
     --nodes-csv  "kf_${COHORT}_nodes_clean.csv" \
     --out        "kf_${COHORT}_seed_cuis.txt" \
     --verbose

@@ -32,9 +32,10 @@
 set -euo pipefail
 
 COHORT="${1:-chd}"
-NEO4J_USER="${2:-neo4j}"
-NEO4J_PASS="${3:-neo4j}"
-NEO4J_ADDR="${4:-bolt://localhost:7687}"
+SEEDS="${2:-maf001}"   # maf001 (default) | maf01 | "" (original)
+NEO4J_USER="${3:-neo4j}"
+NEO4J_PASS="${4:-neo4j}"
+NEO4J_ADDR="${5:-bolt://localhost:7687}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 log_stage() {
@@ -59,7 +60,7 @@ log_stage "2.3" "Merge CSV files"
 bash "$SCRIPT_DIR/merge_files.sh" "$COHORT"
 
 log_stage "2.4" "Seed CUI lookup"
-bash "$SCRIPT_DIR/run_seed_lookup.sh" "$COHORT"
+bash "$SCRIPT_DIR/run_seed_lookup.sh" "$COHORT" "$SEEDS"
 
 log_stage "3" "BIFO conditioning + PPR"
 bash "$SCRIPT_DIR/run_conditioning.sh" "$COHORT"
@@ -71,7 +72,7 @@ log_stage "5" "Baseline enrichment comparison"
 bash "$SCRIPT_DIR/run_baseline.sh" "$COHORT"
 
 log_stage "6" "Bootstrap resampling"
-bash "$SCRIPT_DIR/run_resampling.sh" "$COHORT"
+bash "$SCRIPT_DIR/run_resampling.sh" "$COHORT" "$SEEDS"
 
 echo ""
 echo "============================================================"

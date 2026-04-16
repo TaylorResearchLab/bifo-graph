@@ -28,8 +28,9 @@
 set -euo pipefail
 
 COHORT="${1:-chd}"
-N_BOOTS="${2:-500}"
-N_CORES="${3:-}"
+SEEDS="${2:-maf001}"   # maf001 (default) | maf01 | "" (original)
+N_BOOTS="${3:-500}"
+N_CORES="${4:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESULTS_DIR="kf_${COHORT}_results"
 
@@ -51,7 +52,7 @@ python3 "$SCRIPT_DIR/kf_resampling.py" \
     --edges-merged "kf_${COHORT}_edges_all.csv" \
     --node-index   "${RESULTS_DIR}/results_node_index.json" \
     --bifo-scores  "${RESULTS_DIR}/pathway_scores_standard.csv" \
-    --seed-pool    "kf_${COHORT}_seeds.txt" \
+    --seed-pool    "kf_${COHORT}_seeds${SEEDS:+_${SEEDS}}.txt" \
     --ref-pathways "kf_${COHORT}_ncc_reference.txt" \
     --out-csv      "${RESULTS_DIR}/resampling_results.csv" \
     --out-json     "${RESULTS_DIR}/resampling_summary.json" \

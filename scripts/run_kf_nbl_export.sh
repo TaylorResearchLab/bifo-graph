@@ -10,6 +10,7 @@ set -euo pipefail
 USER="${1:-neo4j}"
 PASS="${2:-neo4j}"
 ADDR="${3:-bolt://localhost:7687}"
+SEEDS="${4:-maf001}"   # maf001 (default) | maf01 | "" (original 56-gene)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 CYPHER_SHELL="${CYPHER_SHELL:-cypher-shell}"
@@ -39,6 +40,21 @@ echo "KF-NBL Neo4j Export"
 echo "  Server : $ADDR"
 echo "  User   : $USER"
 echo "============================================================"
+
+
+# Generate cypher query files from current seed list
+SEEDS_FILE="kf_nbl_seeds${SEEDS:+_${SEEDS}}.txt"
+if [ ! -f "$SEEDS_FILE" ]; then
+    echo "ERROR: Seed file not found: $SEEDS_FILE"
+    echo "Expected in working directory. Copy from repo: data/cohorts/nbl/$SEEDS_FILE"
+    exit 1
+fi
+echo "Generating query files from: $SEEDS_FILE"
+python3 "$SCRIPT_DIR/generate_export_cypher.py" \
+    --seeds   "$SEEDS_FILE" \
+    --cohort  "nbl" \
+    --out-dir "."
+echo ""
 
 run_query kf_nbl_query2.cypher kf_nbl_seed_nodes.csv
 run_query kf_nbl_query3.cypher kf_nbl_edges_raw.csv

@@ -29,8 +29,8 @@ run_query() {
     echo "[$(date +%H:%M:%S)] Running $qfile -> $outfile ..."
     "$CYPHER_SHELL" -u "$USER" -p "$PASS" -a "$ADDR" \
         --format plain \
-        < "./$qfile" \
-        > "$outfile" 2>/dev/null || {
+        --file "./$qfile" \
+        > "$outfile" || {
             if [ ! -s "$outfile" ]; then
                 echo "ERROR: $outfile is empty."
                 exit 1

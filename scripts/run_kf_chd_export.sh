@@ -48,8 +48,8 @@ run_query() {
     echo "[$(date +%H:%M:%S)] Running $qfile -> $outfile ..."
     "$CYPHER_SHELL" -u "$USER" -p "$PASS" -a "$ADDR" \
         --format plain \
-        < "./$qfile" \
-        > "$outfile" 2>/dev/null || {
+        --file "./$qfile" \
+        > "$outfile" || {
             # cypher-shell may exit non-zero on warnings — check output has content
             if [ ! -s "$outfile" ]; then
                 echo "ERROR: $outfile is empty. Check Neo4j connection and query."

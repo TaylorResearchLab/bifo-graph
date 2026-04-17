@@ -156,7 +156,10 @@ def filter_to_bifo_universe(bifo_scores_csv: str,
     scored = set()
     with open(bifo_scores_csv) as f:
         for row in csv.DictReader(f):
-            scored.add(clean(row.get('pathway_cui', row.get('CUI', ''))))
+            cui = (row.get('concept_id') or row.get('pathway_cui') or
+                   row.get('CUI') or row.get('cui') or '')
+            if cui:
+                scored.add(clean(cui))
     return {pw: members for pw, members in membership.items() if pw in scored}
 
 

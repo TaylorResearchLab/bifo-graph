@@ -118,8 +118,6 @@ def build_membership_and_universe(
     """
     membership: Dict[str, Set[str]] = defaultdict(set)
     hop1_neighbors: Set[str] = set()
-    all_gene_nodes: Set[str] = set()
-
     with open(edges_merged_path, encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -133,12 +131,6 @@ def build_membership_and_universe(
             if tgt in seed_ids:
                 hop1_neighbors.add(src)
 
-            # Track all C-prefixed nodes (gene universe)
-            if src.startswith('C'):
-                all_gene_nodes.add(src)
-            if tgt.startswith('C'):
-                all_gene_nodes.add(tgt)
-
             # Build membership
             if pred in MEMBERSHIP_PREDS_FWD:
                 membership[src].add(tgt)
@@ -147,18 +139,28 @@ def build_membership_and_universe(
 
     hop1_genes = {n for n in hop1_neighbors
                   if n.startswith('C') and n not in seed_ids}
-    gene_universe = {n for n in all_gene_nodes if n not in seed_ids}
 
-    # Filter membership by size
+    # Filter membership by size first
     membership = {
         pw: genes for pw, genes in membership.items()
         if min_members <= len(genes) <= max_members
     }
 
+    # Gene universe = union of all pathway member genes.
+    # This is the standard background for hypergeometric pathway enrichment:
+    # the set of genes that could in principle be annotated to a pathway.
+    # Using all C-prefixed graph nodes (58k+) inflates the denominator and
+    # causes p-value floor collapse — every pathway with any overlap gets p=0.
+    pathway_member_universe = {
+        gene for genes in membership.values() for gene in genes
+    }
+    gene_universe = pathway_member_universe - seed_ids
+
     log.info("Membership: %d pathways (min=%d, max=%d members)",
              len(membership), min_members, max_members)
     log.info("1-hop gene neighbors: %d", len(hop1_genes))
-    log.info("Gene universe: %d", len(gene_universe))
+    log.info("Gene universe (pathway members only): %d", len(gene_universe))
+    log.info("  (excludes %d seed genes from universe denominator)", len(seed_ids))
 
     return membership, hop1_genes, gene_universe
 

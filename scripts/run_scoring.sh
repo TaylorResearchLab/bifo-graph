@@ -27,6 +27,7 @@
 set -euo pipefail
 
 COHORT="${1:-chd}"
+N_CORES="${2:-0}"   # 0 = auto-detect all available cores
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PIPELINE_DIR="$REPO_DIR/pipeline"
@@ -58,7 +59,8 @@ python3 "$PIPELINE_DIR/score_pathways.py" \
     --node-index        "${RESULTS_DIR}/results_node_index.json" \
     --seed-nodes        "$SEED_CUIS" \
     --out-csv           "${RESULTS_DIR}/pathway_scores_standard.csv" \
-    --out-json          "${RESULTS_DIR}/pathway_metrics_standard.json"
+    --out-json          "${RESULTS_DIR}/pathway_metrics_standard.json" \
+    --n-cores           "$N_CORES"
 
 # --- Run 4.2: NCC/cilia reference evaluation ---
 echo ""
@@ -73,7 +75,8 @@ python3 "$PIPELINE_DIR/score_pathways.py" \
     --seed-nodes        "$SEED_CUIS" \
     --chd-pathways      "$NCC_REF" \
     --out-csv           "${RESULTS_DIR}/pathway_scores_ncc.csv" \
-    --out-json          "${RESULTS_DIR}/pathway_metrics_ncc.json"
+    --out-json          "${RESULTS_DIR}/pathway_metrics_ncc.json" \
+    --n-cores           "$N_CORES"
 
 echo ""
 echo "Scoring complete."

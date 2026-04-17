@@ -60,6 +60,77 @@ from __future__ import annotations
 
 import argparse
 
+
+# ---------------------------------------------------------------------------
+# Parallel scoring worker
+# ---------------------------------------------------------------------------
+_WORKER_GLOBALS: dict = {}
+
+def _init_worker(globals_dict: dict) -> None:
+    """Initializer for Pool workers — loads shared read-only data once."""
+    _WORKER_GLOBALS.update(globals_dict)
+
+
+def _score_chunk(chunk: list) -> list:
+    """Score a chunk of (concept_id, sab) pairs. Returns list of PathwayScore dicts."""
+    g = _WORKER_GLOBALS
+    scores_cond    = g['scores_cond']
+    scores_raw     = g['scores_raw']
+    node_to_idx    = g['node_to_idx']
+    name_lookup    = g['name_lookup']
+    membership_map = g['membership_map']
+    neighbor_map   = g['neighbor_map']
+    pathway_degrees = g['pathway_degrees']
+    p90_degree     = g['p90_degree']
+    chd_pathway_set = g['chd_pathway_set']
+    global_top_seeds = g['global_top_seeds']
+
+    results = []
+    for concept_id, sab in chunk:
+        if concept_id not in node_to_idx:
+            continue
+        idx        = node_to_idx[concept_id]
+        direct     = float(scores_cond[idx])
+        direct_raw = float(scores_raw[idx])
+        members    = membership_map.get(concept_id, [])
+
+        member_scores = [
+            float(scores_cond[node_to_idx[m]])
+            for m in members if m in node_to_idx
+        ]
+        member_mean = float(np.mean(member_scores)) if member_scores else 0.0
+        member_max  = float(np.max(member_scores))  if member_scores else 0.0
+
+        degree      = pathway_degrees.get(concept_id, 0)
+        degree_norm = direct / math.sqrt(degree) if degree > 0 else direct
+
+        neighbors = neighbor_map.get(concept_id, [])
+        neighbor_scores = [
+            float(scores_cond[node_to_idx[n]])
+            for n in neighbors if n in node_to_idx
+        ]
+        bg_mean  = float(np.mean(neighbor_scores)) if neighbor_scores else 0.0
+        local_bg = direct - bg_mean
+
+        results.append(PathwayScore(
+            concept_id=concept_id,
+            name=name_lookup.get(concept_id, concept_id),
+            sab=sab,
+            direct=direct,
+            member_mean=member_mean,
+            member_max=member_max,
+            degree_norm=degree_norm,
+            local_bg=local_bg,
+            direct_raw=direct_raw,
+            raw_vs_cond_delta=direct - direct_raw,
+            member_gene_count=len(members),
+            degree=degree,
+            degree_flag=degree > p90_degree,
+            in_chd_set=concept_id in chd_pathway_set,
+            contributing_seeds=global_top_seeds[:],
+        ))
+    return results
+
 def removesuffix(s, suffix):
     return s[:-len(suffix)] if suffix and s.endswith(suffix) else s
 
@@ -72,6 +143,8 @@ from pathlib import Path
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 import numpy as np
+import multiprocessing as mp
+import os
 import pandas as pd
 
 log = logging.getLogger(__name__)
@@ -527,6 +600,7 @@ def compute_pathway_scores(
     seed_node_ids: List[str],
     chd_pathway_set: Set[str],
     membership_sources: List[MembershipSource],
+    n_cores: int = 1,
 ) -> List[PathwayScore]:
 
     # Name lookup
@@ -563,55 +637,36 @@ def compute_pathway_scores(
         )[:5]
     ]
 
-    results: List[PathwayScore] = []
+    # Build shared read-only dict for workers
+    shared = {
+        'scores_cond':      scores_cond,
+        'scores_raw':       scores_raw,
+        'node_to_idx':      node_to_idx,
+        'name_lookup':      name_lookup,
+        'membership_map':   membership_map,
+        'neighbor_map':     neighbor_map,
+        'pathway_degrees':  pathway_degrees,
+        'p90_degree':       p90_degree,
+        'chd_pathway_set':  chd_pathway_set,
+        'global_top_seeds': global_top_seeds,
+    }
 
-    for concept_id, sab in pathway_node_map.items():
-        if concept_id not in node_to_idx:
-            continue
+    items = list(pathway_node_map.items())
+    cores = min(n_cores, len(items)) if n_cores > 1 else 1
 
-        idx = node_to_idx[concept_id]
-        direct = float(scores_cond[idx])
-        direct_raw = float(scores_raw[idx])
-        members = membership_map.get(concept_id, [])
-
-        # member_mean, member_max
-        member_scores = [
-            float(scores_cond[node_to_idx[m]])
-            for m in members if m in node_to_idx
-        ]
-        member_mean = float(np.mean(member_scores)) if member_scores else 0.0
-        member_max = float(np.max(member_scores)) if member_scores else 0.0
-
-        # degree_norm: penalise large pathways
-        degree = pathway_degrees.get(concept_id, 0)
-        degree_norm = direct / math.sqrt(degree) if degree > 0 else direct
-
-        # local_bg: direct minus mean conditioned-graph neighbor score
-        neighbors = neighbor_map.get(concept_id, [])
-        neighbor_scores = [
-            float(scores_cond[node_to_idx[n]])
-            for n in neighbors if n in node_to_idx
-        ]
-        bg_mean = float(np.mean(neighbor_scores)) if neighbor_scores else 0.0
-        local_bg = direct - bg_mean
-
-        results.append(PathwayScore(
-            concept_id=concept_id,
-            name=name_lookup.get(concept_id, concept_id),
-            sab=sab,
-            direct=direct,
-            member_mean=member_mean,
-            member_max=member_max,
-            degree_norm=degree_norm,
-            local_bg=local_bg,
-            direct_raw=direct_raw,
-            raw_vs_cond_delta=direct - direct_raw,
-            member_gene_count=len(members),
-            degree=degree,
-            degree_flag=degree > p90_degree,
-            in_chd_set=concept_id in chd_pathway_set,
-            contributing_seeds=global_top_seeds[:],  # see top_global_seeds note above
-        ))
+    if cores > 1:
+        chunk_size = max(1, len(items) // cores)
+        chunks = [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+        log.info("Scoring %d pathways across %d cores (%d chunks)",
+                 len(items), cores, len(chunks))
+        with mp.Pool(processes=cores,
+                     initializer=_init_worker,
+                     initargs=(shared,)) as pool:
+            chunk_results = pool.map(_score_chunk, chunks)
+        results: List[PathwayScore] = [r for chunk in chunk_results for r in chunk]
+    else:
+        _init_worker(shared)
+        results = _score_chunk(items)
 
     log.info("Scored %d pathway nodes (%d with member genes)",
              len(results), sum(1 for r in results if r.member_gene_count > 0))
@@ -704,6 +759,7 @@ def score_pathways(
     min_members: int = 1,
     max_members: Optional[int] = None,
     excluded_name_patterns: Optional[List[str]] = None,
+    n_cores: int = 1,
 ) -> Tuple[List[PathwayScore], Dict[str, float]]:
     """
     Score all pathway nodes and return (ranked_scores, metrics).
@@ -748,6 +804,7 @@ def score_pathways(
         scores_cond, scores_raw,
         node_to_idx, nodes, conditioned_edges,
         seed_node_ids, chd_pathway_set, sources,
+        n_cores=n_cores,
     )
 
     # Filter 1: minimum member gene count
@@ -892,6 +949,9 @@ Examples:
                         help="Exclude pathways with more than this many mapped member "
                              "genes (default: no limit). Use to remove giant hub "
                              "pathways that dilute signal (e.g. --max-members 300)")
+    parser.add_argument("--n-cores",           type=int, default=1,
+                        help="Number of parallel worker processes for pathway scoring "
+                             "(default: 1). Use 0 to auto-detect all available cores.")
 
     args = parser.parse_args()
     nodes = load_table(args.nodes)
@@ -931,6 +991,10 @@ Examples:
         chd_set = set(_read_node_list(args.chd_pathways))
         log.info("Loaded %d CHD reference pathway IDs", len(chd_set))
 
+    n_cores = args.n_cores if args.n_cores > 0 else mp.cpu_count()
+    if n_cores > 1:
+        log.info("Parallel scoring enabled: %d cores", n_cores)
+
     scored, metrics = score_pathways(
         nodes=nodes,
         edges_raw=edges_raw,
@@ -943,6 +1007,7 @@ Examples:
         score_variant=args.score_variant,
         min_members=args.min_members,
         max_members=args.max_members,
+        n_cores=n_cores,
     )
 
     if not scored:

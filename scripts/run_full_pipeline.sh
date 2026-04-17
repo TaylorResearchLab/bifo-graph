@@ -33,9 +33,10 @@ set -euo pipefail
 
 COHORT="${1:-chd}"
 SEEDS="${2:-maf001}"   # maf001 (default) | maf01 | "" (original)
-NEO4J_USER="${3:-neo4j}"
-NEO4J_PASS="${4:-neo4j}"
-NEO4J_ADDR="${5:-bolt://localhost:7687}"
+N_CORES="${3:-0}"      # 0 = auto-detect; set explicitly e.g. 8
+NEO4J_USER="${4:-neo4j}"
+NEO4J_PASS="${5:-neo4j}"
+NEO4J_ADDR="${6:-bolt://localhost:7687}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PIPELINE_DIR="$REPO_DIR/pipeline"
@@ -70,7 +71,7 @@ log_stage "3" "BIFO conditioning + PPR"
 bash "$SCRIPT_DIR/run_conditioning.sh" "$COHORT"
 
 log_stage "4" "Pathway scoring (standard + NCC)"
-bash "$SCRIPT_DIR/run_scoring.sh" "$COHORT"
+bash "$SCRIPT_DIR/run_scoring.sh" "$COHORT" "$N_CORES"
 
 log_stage "5" "Baseline enrichment comparison"
 bash "$SCRIPT_DIR/run_baseline.sh" "$COHORT"

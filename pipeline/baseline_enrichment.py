@@ -8,6 +8,8 @@ recall@k, average precision) for all arms.
 
 Baselines
 ---------
+B0  degree_overlap    — degree-weighted seed overlap (graph membership baseline)
+                        OPTIONAL: requires --kept-edges; skipped if omitted
 B1  seed_fisher       — hypergeometric enrichment on seed genes only
 B2  neighborhood_fisher — hypergeometric on all 1-hop gene neighbors of seeds
 B3  raw_ppr_gsea      — preranked GSEA-style enrichment on raw PPR scores
@@ -34,6 +36,7 @@ Usage
     --bifo-scores   test_output/pathway_scores_full.csv \\
     --chd-pathways  chd_pathway_reference.txt \\
     --seed-nodes    minimal_test_run_seed_nodes.txt \\
+    --kept-edges    test_output/results_kept_edges.csv \\
     --out-csv       test_output/baseline_comparison.csv \\
     --out-json      test_output/baseline_comparison.json \\
     --min-members   8 \\
@@ -147,10 +150,6 @@ def build_membership_and_universe(
     }
 
     # Gene universe = union of all pathway member genes.
-    # This is the standard background for hypergeometric pathway enrichment:
-    # the set of genes that could in principle be annotated to a pathway.
-    # Using all C-prefixed graph nodes (58k+) inflates the denominator and
-    # causes p-value floor collapse — every pathway with any overlap gets p=0.
     pathway_member_universe = {
         gene for genes in membership.values() for gene in genes
     }
@@ -170,13 +169,8 @@ def build_membership_and_universe(
 # ---------------------------------------------------------------------------
 
 def ndcg_at_k(ranked_relevance: List[int], k: int) -> float:
-    """
-    Normalized Discounted Cumulative Gain at rank k.
-    ranked_relevance: list of 0/1 relevance for items in ranked order.
-    """
     k = min(k, len(ranked_relevance))
     dcg = sum(rel / math.log2(i + 2) for i, rel in enumerate(ranked_relevance[:k]))
-    # Ideal DCG: all relevant items at top
     n_relevant = sum(ranked_relevance)
     ideal_hits = min(n_relevant, k)
     idcg = sum(1.0 / math.log2(i + 2) for i in range(ideal_hits))
@@ -190,7 +184,6 @@ def recall_at_k(ranked_relevance: List[int], k: int, n_relevant: int) -> float:
 
 
 def average_precision(ranked_relevance: List[int]) -> float:
-    """Mean average precision over the full ranked list."""
     hits = 0
     precision_sum = 0.0
     for i, rel in enumerate(ranked_relevance):
@@ -206,9 +199,6 @@ def compute_ranking_metrics(
     reference_set: Set[str],
     k_values: Tuple[int, ...] = (10, 20, 50),
 ) -> Dict[str, float]:
-    """
-    Compute full suite of ranking metrics for a ranked list against a reference set.
-    """
     n_total = len(ranked_items)
     n_ref = sum(1 for item in ranked_items if item in reference_set)
     bg_rate = n_ref / n_total if n_total > 0 else 0.0
@@ -230,12 +220,66 @@ def compute_ranking_metrics(
         metrics[f'recall_at_{k}'] = recall_at_k(relevance, k, n_ref)
         metrics[f'ndcg_at_{k}'] = ndcg_at_k(relevance, k)
 
-    # Ranks of reference pathways
     ref_ranks = [i + 1 for i, r in enumerate(relevance) if r]
     metrics['mean_ref_rank'] = float(np.mean(ref_ranks)) if ref_ranks else float('nan')
     metrics['average_precision'] = average_precision(relevance)
 
     return metrics
+
+
+# ---------------------------------------------------------------------------
+# B0: Degree-weighted seed overlap  (NEW)
+# ---------------------------------------------------------------------------
+
+def compute_conditioned_degree(kept_edges_path: str) -> Dict[str, int]:
+    """
+    Compute out-degree of each node in the BIFO-conditioned propagation graph.
+    Reads results_kept_edges.csv (all kept edges, including non-propagating).
+    Out-degree is used as a graph-structure weight in B0 scoring.
+    """
+    degree: Dict[str, int] = defaultdict(int)
+    with open(kept_edges_path, encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            src = clean_node_id(row['source'])
+            degree[src] += 1
+    log.info("Conditioned degree: %d nodes with outgoing edges", len(degree))
+    return dict(degree)
+
+
+def degree_overlap_enrichment(
+    seed_ids: Set[str],
+    membership: Dict[str, Set[str]],
+    conditioned_degree: Dict[str, int],
+) -> List[Tuple[str, float, int, int]]:
+    """
+    B0: Degree-weighted seed overlap baseline.
+
+    score(p) = Σ_{g ∈ seeds ∩ members(p)} degree_conditioned(g) / √(|members(p)|)
+
+    Uses out-degree in the BIFO-conditioned graph as a graph-structure weight.
+    Unlike B1 (Fisher), no statistical test is performed.
+    Unlike B3 (GSEA), no PPR propagation is used.
+    Provides a lower bound on graph-guided methods and isolates the contribution
+    of propagation beyond direct seed-membership overlap.
+
+    Returns list of (pathway_id, score, overlap_count, pathway_size),
+    sorted by descending score (ties broken by descending pathway size).
+    """
+    results = []
+    for pw_id, members in membership.items():
+        overlap = members & seed_ids
+        if not overlap:
+            score = 0.0
+        else:
+            score = (
+                sum(conditioned_degree.get(g, 1) for g in overlap)
+                / math.sqrt(len(members))
+            )
+        results.append((pw_id, score, len(overlap), len(members)))
+
+    results.sort(key=lambda x: (-x[1], -x[3]))
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -247,31 +291,14 @@ def seed_fisher_enrichment(
     membership: Dict[str, Set[str]],
     gene_universe: Set[str],
 ) -> List[Tuple[str, float, int, int]]:
-    """
-    Returns list of (pathway_id, pvalue, overlap, pathway_size), sorted by pvalue.
-
-    Hypergeometric test:
-      N = gene universe size
-      K = pathway member count (in universe)
-      n = seed count (in universe)
-      k = overlap between seeds and pathway members
-
-    Uses log-space computation to avoid float underflow when large query sets
-    produce p-values that round to 0.0 in standard float precision.
-    Sorting on log_p preserves correct rank ordering even when pval underflows.
-    """
     N = len(gene_universe)
     n = len(seed_ids & gene_universe)
     results = []
 
     for pw_id, members in membership.items():
-        # N, K, n, k must all be computed on the same universe
-        # K = pathway members in universe (seeds excluded from universe)
-        # k = seed genes that are pathway members (regardless of universe membership)
-        # To keep k <= K, use the full member set as denominator instead:
-        K = len(members)           # total pathway size (all members)
-        N_full = len(gene_universe) + len(seed_ids)  # full gene space
-        n_full = len(seed_ids)     # all seeds
+        K = len(members)
+        N_full = len(gene_universe) + len(seed_ids)
+        n_full = len(seed_ids)
         k = len(members & seed_ids)
         if k == 0:
             log_p = 0.0
@@ -294,9 +321,6 @@ def neighborhood_fisher_enrichment(
     membership: Dict[str, Set[str]],
     gene_universe: Set[str],
 ) -> List[Tuple[str, float, int, int]]:
-    """
-    Same as seed_fisher but uses seed_ids UNION hop1_genes as the query set.
-    """
     query = (seed_ids | hop1_genes) & gene_universe
     N = len(gene_universe)
     n = len(query)
@@ -322,7 +346,6 @@ def neighborhood_fisher_enrichment(
 # ---------------------------------------------------------------------------
 
 def bh_correct(pvalues: List[float]) -> List[float]:
-    """Benjamini-Hochberg FDR correction."""
     n = len(pvalues)
     if n == 0:
         return []
@@ -348,16 +371,6 @@ def preranked_gsea_enrichment(
     gene_universe: Set[str],
     weighted_score: bool = True,
 ) -> List[Tuple[str, float, float]]:
-    """
-    Preranked GSEA enrichment score for each pathway.
-
-    Uses a running-sum statistic over genes ranked by score.
-    Genes with non-zero scores are ranked descending; zero-score genes appended.
-
-    Returns list of (pathway_id, enrichment_score, leading_edge_fraction).
-    Higher ES = pathway genes concentrated at top of ranking.
-    """
-    # Build ranked gene list (gene_id, score) — descending
     scored_genes = [(g, s) for g, s in gene_scores.items() if g in gene_universe]
     scored_genes.sort(key=lambda x: -x[1])
     ranked_genes = [g for g, _ in scored_genes]
@@ -378,7 +391,6 @@ def preranked_gsea_enrichment(
             continue
 
         if weighted_score:
-            # GSEA weighted: use |score| as weight for hits
             hit_weights = np.where(hits == 1, np.abs(ranked_scores), 0.0)
             hit_sum = hit_weights.sum()
             if hit_sum == 0:
@@ -402,11 +414,9 @@ def preranked_gsea_enrichment(
                 max_dev = running_sum
                 max_pos = i
 
-        # Leading edge fraction: fraction of pathway genes in top max_pos genes
         leading_edge = hits[:max_pos + 1].sum() / n_hit if n_hit > 0 else 0.0
         results.append((pw_id, float(max_dev), float(leading_edge)))
 
-    # Sort by enrichment score descending (positive ES = enriched at top)
     return sorted(results, key=lambda x: -x[1])
 
 
@@ -428,6 +438,7 @@ def run_baseline_comparison(
     max_members: int = 300,
     k_values: Tuple[int, ...] = (10, 20, 50),
     allowed_pathway_ids: Optional[Set[str]] = None,
+    kept_edges_path: Optional[str] = None,   # NEW: required for B0
 ) -> Dict:
 
     # Load inputs
@@ -476,7 +487,10 @@ def run_baseline_comparison(
     b2_ranked = [r[0] for r in b2_results]
     b2_metrics = compute_ranking_metrics(b2_ranked, chd_ref, k_values)
     b2_metrics['method'] = 'neighborhood_fisher'
-    b2_metrics['description'] = f'Hypergeometric on {len(hop1_genes)} 1-hop gene neighbors (+{len(seed_ids)} seeds = {len(seed_ids | hop1_genes)} total query)'
+    b2_metrics['description'] = (
+        f'Hypergeometric on {len(hop1_genes)} 1-hop gene neighbors '
+        f'(+{len(seed_ids)} seeds = {len(seed_ids | hop1_genes)} total query)'
+    )
 
     # -----------------------------------------------------------------------
     # B3: Preranked GSEA on raw PPR scores
@@ -516,11 +530,9 @@ def run_baseline_comparison(
         reverse=True
     )
     b4_ranked = [r['concept_id'] for r in bifo_rows]
-    # Use BIFO's exact pathway universe as the allowed set for all baselines
     bifo_universe = set(b4_ranked)
     if allowed_pathway_ids is None:
         log.info("Restricting baselines to BIFO pathway universe (%d pathways)", len(bifo_universe))
-        # Re-filter membership to match BIFO universe
         membership = {pw: genes for pw, genes in membership.items() if pw in bifo_universe}
         log.info("Membership after BIFO-universe filter: %d pathways", len(membership))
         # Rerun baselines with matched universe
@@ -555,14 +567,40 @@ def run_baseline_comparison(
         b3b_metrics = compute_ranking_metrics(b3b_ranked, chd_ref, k_values)
         b3b_metrics['method'] = 'cond_ppr_gsea'
         b3b_metrics['description'] = 'Preranked GSEA on conditioned PPR scores (BIFO universe)'
+
     b4_metrics = compute_ranking_metrics(b4_ranked, chd_ref, k_values)
     b4_metrics['method'] = 'bifo_full'
     b4_metrics['description'] = 'BIFO-conditioned degree_norm pathway scoring'
 
     # -----------------------------------------------------------------------
+    # B0: Degree-weighted seed overlap  (NEW — optional, requires --kept-edges)
+    # -----------------------------------------------------------------------
+    b0_metrics = None
+    b0_results: List[Tuple[str, float, int, int]] = []
+    b0_ranked: List[str] = []
+
+    if kept_edges_path:
+        log.info("Running B0: Degree-weighted seed overlap...")
+        conditioned_degree = compute_conditioned_degree(kept_edges_path)
+        b0_results = degree_overlap_enrichment(seed_ids, membership, conditioned_degree)
+        b0_ranked = [r[0] for r in b0_results]
+        b0_metrics = compute_ranking_metrics(b0_ranked, chd_ref, k_values)
+        b0_metrics['method'] = 'degree_overlap'
+        b0_metrics['description'] = (
+            'Degree-weighted seed overlap: '
+            'score(p)=sum(degree_cond(g) for g in seeds∩members(p))/sqrt(|members(p)|)'
+        )
+        log.info("B0 non-zero pathways: %d / %d",
+                 sum(1 for r in b0_results if r[1] > 0), len(b0_results))
+    else:
+        log.info("B0 skipped (--kept-edges not provided)")
+
+    # -----------------------------------------------------------------------
     # Compile comparison table
     # -----------------------------------------------------------------------
     all_methods = [b1_metrics, b2_metrics, b3_metrics, b3b_metrics, b4_metrics]
+    if b0_metrics:
+        all_methods.insert(0, b0_metrics)   # prepend — B0 is the simplest baseline
 
     print("\n" + "=" * 90)
     print("BASELINE COMPARISON (Analysis 4 + 6)")
@@ -591,13 +629,20 @@ def run_baseline_comparison(
 
     print()
     print("  Top 5 pathways per method:")
-    for label, ranked, pvals in [
-        ('B1 seed_fisher',         b1_ranked, b1_pvals),  # BH-adjusted p-values
+
+    # Build top-5 print list — include B0 if present
+    top5_methods = []
+    if b0_metrics:
+        top5_methods.append(('B0 degree_overlap', b0_ranked, None))
+    top5_methods += [
+        ('B1 seed_fisher',         b1_ranked, b1_pvals),
         ('B2 neighborhood_fisher', b2_ranked, b2_pvals),
         ('B3 raw_ppr_gsea',        b3_ranked, None),
         ('B3b cond_ppr_gsea',      b3b_ranked, None),
         ('B4 bifo_full',           b4_ranked, None),
-    ]:
+    ]
+
+    for label, ranked, pvals in top5_methods:
         print(f"\n  {label}:")
         for i, pw_id in enumerate(ranked[:5], 1):
             chd = '★' if pw_id in chd_ref else ' '
@@ -608,22 +653,31 @@ def run_baseline_comparison(
     # -----------------------------------------------------------------------
     # Write outputs
     # -----------------------------------------------------------------------
-    # CSV: one row per (method, pathway), with all metrics
     csv_rows = []
-    # Build BH p-value maps for Fisher methods
     b1_bh_map  = {b1_results[i][0]: b1_pvals[i]  for i in range(len(b1_results))}
     b2_bh_map  = {b2_results[i][0]: b2_pvals[i]  for i in range(len(b2_results))}
 
-    for method_label, ranked, raw_results in [
+    # Build the methods list for CSV output — include B0 if present
+    csv_methods = []
+    if b0_results:
+        csv_methods.append(
+            ('degree_overlap', b0_ranked,
+             {r[0]: r for r in b0_results})
+        )
+    csv_methods += [
         ('seed_fisher',         b1_ranked, {r[0]: r for r in b1_results}),
         ('neighborhood_fisher', b2_ranked, {r[0]: r for r in b2_results}),
         ('raw_ppr_gsea',        b3_ranked, {r[0]: r for r in b3_results}),
         ('cond_ppr_gsea',       b3b_ranked, {r[0]: r for r in b3b_results}),
-        ('bifo_full',           b4_ranked, {r['concept_id']: (r['concept_id'], r.get('degree_norm',''), r.get('member_gene_count',''), '') for r in bifo_rows}),
-    ]:
+        ('bifo_full',           b4_ranked,
+         {r['concept_id']: (r['concept_id'], r.get('degree_norm',''),
+                             r.get('member_gene_count',''), '')
+          for r in bifo_rows}),
+    ]
+
+    for method_label, ranked, raw_results in csv_methods:
         for rank, pw_id in enumerate(ranked, 1):
             r = raw_results.get(pw_id, (pw_id, '', '', ''))
-            # For Fisher methods: store raw p, BH-adjusted p, and -log10(BH_p)
             if method_label == 'seed_fisher':
                 raw_p = r[1] if len(r) > 1 and r[1] != '' else ''
                 bh_p  = b1_bh_map.get(pw_id, '')
@@ -636,6 +690,11 @@ def run_baseline_comparison(
                 stat_val = f"{float(raw_p):.6e}" if raw_p != '' else ''
                 bh_val   = f"{float(bh_p):.6e}" if bh_p != '' else ''
                 log10_bh = f"{-math.log10(max(float(bh_p), 1e-300)):.3f}" if bh_p != '' and float(bh_p) > 0 else 'inf'
+            elif method_label == 'degree_overlap':
+                # B0: stat = raw score, no BH p-value
+                stat_val = f"{float(r[1]):.6f}" if len(r) > 1 and r[1] != '' else ''
+                bh_val   = ''
+                log10_bh = ''
             else:
                 stat_val = f"{float(r[1]):.6f}" if len(r) > 1 and r[1] != '' else ''
                 bh_val = ''
@@ -670,6 +729,7 @@ def run_baseline_comparison(
             'n_seeds': len(seed_ids),
             'n_hop1_genes': len(hop1_genes),
             'n_gene_universe': len(gene_universe),
+            'b0_enabled': kept_edges_path is not None,
         },
         'methods': all_methods,
     }
@@ -699,6 +759,10 @@ def main():
     parser.add_argument("--out-json",      required=True)
     parser.add_argument("--min-members",   type=int, default=8)
     parser.add_argument("--max-members",   type=int, default=300)
+    parser.add_argument("--kept-edges",    default=None,
+                        help="results_kept_edges.csv from bifo_conditioning.py. "
+                             "Required for B0 (degree-weighted seed overlap). "
+                             "If omitted, B0 is skipped and all other baselines run normally.")
     args = parser.parse_args()
 
     run_baseline_comparison(
@@ -713,6 +777,7 @@ def main():
         out_json=args.out_json,
         min_members=args.min_members,
         max_members=args.max_members,
+        kept_edges_path=args.kept_edges,
     )
 
 

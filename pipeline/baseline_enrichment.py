@@ -255,22 +255,33 @@ def seed_fisher_enrichment(
       K = pathway member count (in universe)
       n = seed count (in universe)
       k = overlap between seeds and pathway members
+
+    Uses log-space computation to avoid float underflow when large query sets
+    produce p-values that round to 0.0 in standard float precision.
+    Sorting on log_p preserves correct rank ordering even when pval underflows.
     """
     N = len(gene_universe)
     n = len(seed_ids & gene_universe)
     results = []
 
     for pw_id, members in membership.items():
-        K = len(members & gene_universe)
+        # N, K, n, k must all be computed on the same universe
+        # K = pathway members in universe (seeds excluded from universe)
+        # k = seed genes that are pathway members (regardless of universe membership)
+        # To keep k <= K, use the full member set as denominator instead:
+        K = len(members)           # total pathway size (all members)
+        N_full = len(gene_universe) + len(seed_ids)  # full gene space
+        n_full = len(seed_ids)     # all seeds
         k = len(members & seed_ids)
         if k == 0:
-            pval = 1.0
+            log_p = 0.0
         else:
-            # P(X >= k) = 1 - P(X <= k-1)
-            pval = hypergeom.sf(k - 1, N, K, n)
-        results.append((pw_id, pval, k, K))
+            log_p = float(hypergeom.logsf(k - 1, N_full, K, n_full))
+        pval = float(np.exp(log_p)) if log_p > -700 else 0.0
+        results.append((pw_id, pval, k, K, log_p))
 
-    return sorted(results, key=lambda x: x[1])
+    results.sort(key=lambda x: x[4])
+    return [(pw, pval, k, K) for pw, pval, k, K, _ in results]
 
 
 # ---------------------------------------------------------------------------
@@ -292,15 +303,18 @@ def neighborhood_fisher_enrichment(
     results = []
 
     for pw_id, members in membership.items():
-        K = len(members & gene_universe)
+        K = len(members)
+        N_full = len(gene_universe) + len(seed_ids)
         k = len(members & query)
         if k == 0:
-            pval = 1.0
+            log_p = 0.0
         else:
-            pval = hypergeom.sf(k - 1, N, K, n)
-        results.append((pw_id, pval, k, K))
+            log_p = float(hypergeom.logsf(k - 1, N_full, K, n))
+        pval = float(np.exp(log_p)) if log_p > -700 else 0.0
+        results.append((pw_id, pval, k, K, log_p))
 
-    return sorted(results, key=lambda x: x[1])
+    results.sort(key=lambda x: x[4])
+    return [(pw, pval, k, K) for pw, pval, k, K, _ in results]
 
 
 # ---------------------------------------------------------------------------

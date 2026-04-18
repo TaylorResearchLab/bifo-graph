@@ -2,20 +2,21 @@
   "parameters": {
     "score_variant": "degree_norm",
     "n_seeds": 1276,
-    "n_chd_reference": 0
+    "n_chd_reference": 19
   },
   "metrics": {
-    "n_pathways_scored": 5124.0,
-    "n_chd_in_reference": 0.0,
-    "background_chd_rate": 0.0,
-    "top10_precision": 0.0,
-    "top10_enrichment_ratio": NaN,
-    "top20_precision": 0.0,
-    "top20_enrichment_ratio": NaN,
-    "top50_precision": 0.0,
-    "top50_enrichment_ratio": NaN,
-    "mean_rank_chd_cond": NaN,
-    "mean_rank_chd_raw": NaN,
+    "n_pathways_scored": 5104.0,
+    "n_chd_in_reference": 19.0,
+    "background_chd_rate": 0.0037225705329153604,
+    "top10_precision": 0.1,
+    "top10_enrichment_ratio": 26.863157894736844,
+    "top20_precision": 0.05,
+    "top20_enrichment_ratio": 13.431578947368422,
+    "top50_precision": 0.04,
+    "top50_enrichment_ratio": 10.745263157894737,
+    "mean_rank_chd_cond": 1250.7368421052631,
+    "mean_rank_chd_raw": 1767.9473684210527,
+    "rank_improvement_cond_vs_raw": 517.2105263157896,
     "top10_hub_fraction": 0.7,
     "top20_hub_fraction": 0.7,
     "top50_hub_fraction": 0.7
@@ -35,7 +36,7 @@
       "member_gene_count": 170,
       "degree": 170,
       "degree_flag": false,
-      "in_chd_set": false,
+      "in_chd_set": true,
       "contributing_seeds": "C1335872|C1414313|C1367472|C0919524|C1335280"
     },
     {
@@ -409,7 +410,7 @@
       "member_gene_count": 94,
       "degree": 94,
       "degree_flag": false,
-      "in_chd_set": false,
+      "in_chd_set": true,
       "contributing_seeds": "C1335872|C1414313|C1367472|C0919524|C1335280"
     },
     {

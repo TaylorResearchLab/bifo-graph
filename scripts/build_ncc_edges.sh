@@ -37,6 +37,7 @@ if [ ! -d "$NCC_DIR" ]; then
     echo "ERROR: NCC pathway directory not found: $NCC_DIR"
     echo "Download ncc_cilia_pathways.zip from the repository and unzip here."
     exit 1
+fi
 echo "============================================================"
 echo "Building NCC membership edges for cohort: $COHORT"
 echo "  NCC dir: $NCC_DIR"

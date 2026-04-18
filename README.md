@@ -165,10 +165,11 @@ python pipeline/chd_resampling_exhaustive.py \
 
 ```bash
 # Full KF-CHD pipeline (all stages)
-bash scripts/run_full_pipeline.sh chd maf001 0 neo4j PASSWORD <your bolt instance address>
+# Full KF-CHD pipeline (all stages)
+bash scripts/run_full_pipeline.sh chd maf001 0 neo4j PASSWORD <your_bolt_instance_address> 
 
 # Full KF-NBL pipeline
-bash scripts/run_full_pipeline.sh nbl maf001 0 neo4j PASSWORD <your bolt instance address>
+bash scripts/run_full_pipeline.sh nbl maf001 0 neo4j PASSWORD <your_bolt_instance_address>
 ```
 
 ### Minimal end-to-end test (no Neo4j required for scoring)

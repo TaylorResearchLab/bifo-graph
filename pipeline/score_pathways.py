@@ -9,8 +9,14 @@ and per-pathway diagnostics.
 Architecture
 ------------
 This module is downstream of conditioning and propagation.
-It does NOT re-run PPR. It consumes the score vector produced by
-bifo_conditioning.py and applies pathway-level aggregation.
+It does NOT re-run PPR for observed scores. It consumes the score vector
+produced by bifo_conditioning.py and applies pathway-level aggregation.
+
+For empirical null scoring (--n-permutations > 0), it rebuilds the
+conditioned PPR operator from kept_edges.csv and runs N permutation PPR
+runs with matched random seed sets drawn from eligible pathway-connected
+genes. This requires no new artifacts beyond what bifo_conditioning.py
+already produces.
 
 Five scoring variants
 ---------------------
@@ -23,37 +29,61 @@ Five scoring variants
                   the key comparison: does BIFO shift scores relative to
                   local background?
 
+Empirical null model (degree_norm only)
+----------------------------------------
+When --n-permutations > 0, an empirical null is computed by running PPR
+N times with matched random seed sets drawn from genes that are:
+  (a) present in the conditioned propagation graph
+  (b) connected to at least one scored pathway via membership edges
+
+For each pathway, the null distribution of degree_norm scores is used to
+compute a finite-sample-corrected empirical p-value:
+  p = (1 + count(null >= observed)) / (1 + N)
+and a BH-adjusted q-value across all tested pathways.
+
+Pathways with q < 0.05 (or user-specified threshold) are considered
+statistically supported under this empirical null. This provides a
+principled usability criterion: a pathway is actionable when its
+propagation score exceeds what matched random seed sets typically achieve.
+
 Per-pathway diagnostics
 -----------------------
 - contributing_seeds : top seed nodes by score (proxy for signal origin)
 - raw_vs_cond_delta  : direct_cond minus direct_raw (conditioning effect)
 - degree_flag        : True if pathway degree > 90th percentile (hub warning)
-- in_chd_set         : True if pathway is in the supplied CHD reference set
-
-Membership handler map
-----------------------
-Pathway membership predicates and SABs are fully configurable via
-MembershipSource objects. Defaults are placeholders — will be updated
-once the pathway/gene query results come back from DDKG.
+- in_chd_set         : True if pathway is in the supplied reference set
+- empirical_p        : empirical p-value vs matched null (if --n-permutations > 0)
+- empirical_q        : BH-adjusted q-value (if --n-permutations > 0)
+- null_mean          : mean degree_norm under null (if --n-permutations > 0)
+- null_sd            : std dev of degree_norm under null (if --n-permutations > 0)
+- null_z             : z-score (observed - null_mean) / null_sd (if --n-permutations > 0)
 
 Usage (CLI)
 -----------
+  # Observed scores only:
   python score_pathways.py \\
-    --nodes nodes.csv \\
-    --edges edges_raw.csv \\
-    --scores-cond scores_conditioned.npy \\
-    --scores-raw  scores_raw.npy \\
-    --node-index  node_index.json \\
-    --seed-nodes  seed_nodes.txt \\
-    --chd-pathways chd_pathway_set.txt \\
-    --out-csv     pathway_scores.csv \\
-    --out-json    pathway_scores.json
+    --nodes nodes.csv --edges-raw edges_raw.csv \\
+    --edges-conditioned kept_edges.csv \\
+    --scores-cond scores_cond.npy --scores-raw scores_raw.npy \\
+    --node-index node_index.json --seed-nodes seed_nodes.txt \\
+    --out-csv pathway_scores.csv --out-json pathway_scores.json
+
+  # With empirical null (1000 permutations, 4 cores):
+  python score_pathways.py \\
+    --nodes nodes.csv --edges-raw edges_raw.csv \\
+    --edges-conditioned kept_edges.csv \\
+    --scores-cond scores_cond.npy --scores-raw scores_raw.npy \\
+    --node-index node_index.json --seed-nodes seed_nodes.txt \\
+    --out-csv pathway_scores.csv --out-json pathway_scores.json \\
+    --n-permutations 1000 --n-cores 4
 
 Usage (API)
 -----------
   from score_pathways import score_pathways, DEFAULT_MEMBERSHIP_SOURCES
-  scored, metrics = score_pathways(nodes, edges, scores_cond, scores_raw,
-                                   node_to_idx, seed_ids, chd_set)
+  scored, metrics = score_pathways(nodes, edges_raw, conditioned_edges,
+                                   scores_cond, scores_raw, node_to_idx,
+                                   seed_ids, chd_set,
+                                   n_permutations=1000)
 """
 
 from __future__ import annotations
@@ -146,6 +176,7 @@ import numpy as np
 import multiprocessing as mp
 import os
 import pandas as pd
+from scipy import sparse as sp_sparse
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO,
@@ -210,12 +241,6 @@ DEFAULT_MEMBERSHIP_SOURCES: List[MembershipSource] = [
     MembershipSource(
         pathway_sab='MSIGDB',
         gene_sabs=['HGNC'],
-        # Verified from query: both stored as PW→GENE (forward=true)
-        # pathway_associated_with_gene = MSigDB C2 curated gene sets
-        # has_signature_gene            = MSigDB Hallmark gene sets
-        # NOTE: targets_expression_of_gene is EXCLUDED — it is LINCS
-        # perturbation data (670K edges) stored under MSIGDB SAB but
-        # semantically is Perturbational Effect, not pathway membership.
         forward_predicates=[
             'pathway_associated_with_gene',
             'has_signature_gene',
@@ -229,29 +254,18 @@ DEFAULT_MEMBERSHIP_SOURCES: List[MembershipSource] = [
     MembershipSource(
         pathway_sab='GO',
         gene_sabs=['HGNC'],
-        # Verified from query: process_involves_gene stored GO→HGNC (forward=true)
-        # gene_plays_role_in_process stored HGNC→GO (forward=false = reverse here)
-        # location_of (GO CC → HGNC, 2,369) excluded — CC annotation, not BP membership
-        # associated_with (789) excluded — too generic
-        # causally_influenced_by (220) excluded — low count, UMLS artifact
-        # ro, aq, qb excluded — UMLS administrative edges
         forward_predicates=[
             'process_involves_gene',
         ],
         reverse_predicates=[
             'gene_plays_role_in_process',
         ],
-        source_type='annotation',  # GO is annotation-style, not discrete membership
+        source_type='annotation',
     ),
-    # REACTOME: No direct REACTOME→HGNC edges in this build.
-    # Reactome connects to GO via has_go_term (120K edges REACTOME→GO).
-    # Gene membership for Reactome pathways can only be obtained by traversing
-    # REACTOME→GO→HGNC two-hop paths, which is NOT handled here.
-    # Stub provided for future implementation when direct edges are available.
     MembershipSource(
         pathway_sab='REACTOME',
         gene_sabs=['HGNC'],
-        forward_predicates=[],   # No direct edges in current build
+        forward_predicates=[],
         reverse_predicates=[],
         source_type='gene_member',
     ),
@@ -270,7 +284,7 @@ DEFAULT_MEMBERSHIP_SOURCES: List[MembershipSource] = [
 
 PATHWAY_SABS: FrozenSet[str] = frozenset([
     'REACTOME', 'MSIGDB', 'GO', 'WIKIPATHWAYS', 'KEGG', 'WP',
-    'NCC_CUSTOM',   # custom NCC/cilia gene sets
+    'NCC_CUSTOM',
 ])
 
 GENE_SABS: FrozenSet[str] = frozenset([
@@ -303,6 +317,12 @@ class PathwayScore:
     degree_flag: bool = False
     in_chd_set: bool = False
     contributing_seeds: List[str] = field(default_factory=list)
+    # Empirical null model outputs (None when --n-permutations not used)
+    empirical_p: Optional[float] = None
+    empirical_q: Optional[float] = None
+    null_mean: Optional[float] = None
+    null_sd: Optional[float] = None
+    null_z: Optional[float] = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -316,7 +336,6 @@ class PathwayScore:
 
 def load_table(path: str) -> pd.DataFrame:
     sep = '\t' if path.endswith('.tsv') else ','
-    # encoding=utf-8-sig strips BOM that Neo4j sometimes prepends to CSV exports
     return pd.read_csv(path, sep=sep, low_memory=False, encoding='utf-8-sig')
 
 
@@ -335,17 +354,11 @@ def load_node_index(path: str) -> Dict[str, int]:
 
 
 def _read_node_list(path: str) -> List[str]:
-    """Read a node ID list, one ID per line.
-    Lines starting with '#' are skipped.
-    Inline comments (anything after first whitespace or '#') are stripped.
-    Only the first token on each line is returned as the ID.
-    """
     ids = []
     for ln in Path(path).read_text().splitlines():
         ln = ln.strip()
         if not ln or ln.startswith('#'):
             continue
-        # Strip inline comment: take only the part before '#' or first whitespace
         token = ln.split('#')[0].strip().split()[0] if ln.split('#')[0].strip() else ''
         if token:
             ids.append(token)
@@ -357,14 +370,7 @@ def _read_node_list(path: str) -> List[str]:
 # ---------------------------------------------------------------------------
 
 def clean_node_id(raw_id: str) -> str:
-    """
-    Strip DDKG schema artifacts from Concept CUI strings.
-
-    In DDKG/UBKG, some Concept CUIs (notably MSIGDB) are stored with a
-    trailing ' CUI' suffix — e.g. 'MSIGDB:M39610 CUI' instead of
-    'MSIGDB:M39610'. This is a graph schema artifact, not meaningful data.
-    Strip it universally at ID load time so all lookups are consistent.
-    """
+    """Strip DDKG schema artifacts from Concept CUI strings."""
     return removesuffix(raw_id.strip(), ' CUI')
 
 
@@ -372,21 +378,13 @@ def identify_pathway_nodes(
     nodes: pd.DataFrame,
     membership_sources: List[MembershipSource],
 ) -> Dict[str, str]:
-    """
-    Returns {concept_id: sab} for Concept nodes belonging to a pathway SAB.
-
-    Requires a 'sab' column in nodes.csv — no edge-based fallback.
-    Node IDs are cleaned via clean_node_id() to strip DDKG schema artifacts
-    (e.g. trailing ' CUI' suffix on MSIGDB Concept CUIs).
-    """
+    """Returns {concept_id: sab} for Concept nodes belonging to a pathway SAB."""
     all_pw_sabs = {src.pathway_sab for src in membership_sources}
     pw_nodes: Dict[str, str] = {}
 
     if 'sab' not in nodes.columns:
         raise ValueError(
-            "nodes.csv must have a 'sab' column for pathway node identification. "
-            "Ensure your DDKG export includes Code SAB per Concept node. "
-            "Edge-based SAB inference is not supported — it misclassifies endpoints."
+            "nodes.csv must have a 'sab' column for pathway node identification."
         )
 
     id_col = next((c for c in ['node_id', 'id', 'CUI'] if c in nodes.columns), None)
@@ -407,21 +405,8 @@ def identify_pathway_nodes(
 # Membership graph construction
 # ---------------------------------------------------------------------------
 
-
 def preflight_check(nodes: pd.DataFrame) -> Dict[str, object]:
-    """
-    Inspect nodes.csv for multi-SAB Concepts before running scoring.
-
-    Returns a diagnostic dict describing:
-    - n_concepts          : total unique Concept IDs
-    - n_multi_sab         : Concepts with more than one SAB row
-    - multi_sab_examples  : up to 10 example Concept IDs and their SABs
-    - pathway_sab_counts  : how many Concepts have each pathway SAB
-    - recommendation      : string advice
-
-    Run this before score_pathways() on any new export to verify that
-    source-aware membership scoring will behave as expected.
-    """
+    """Inspect nodes.csv for multi-SAB Concepts before running scoring."""
     id_col = next((c for c in ['node_id', 'id', 'CUI'] if c in nodes.columns), None)
     if id_col is None or 'sab' not in nodes.columns:
         return {'error': "nodes.csv missing id or sab column"}
@@ -430,8 +415,6 @@ def preflight_check(nodes: pd.DataFrame) -> Dict[str, object]:
     sab_series = nodes['sab'].str.upper()
     n_concepts = id_series.nunique()
 
-    # Group SABs per Concept
-    from itertools import groupby
     sab_by_concept: Dict[str, Set[str]] = defaultdict(set)
     for nid, sab in zip(id_series, sab_series):
         if sab:
@@ -440,7 +423,6 @@ def preflight_check(nodes: pd.DataFrame) -> Dict[str, object]:
     multi_sab = {nid: sabs for nid, sabs in sab_by_concept.items() if len(sabs) > 1}
     n_multi = len(multi_sab)
 
-    # Count pathway SAB coverage
     pathway_sab_counts = (
         sab_series[sab_series.isin(PATHWAY_SABS)]
         .value_counts()
@@ -462,15 +444,12 @@ def preflight_check(nodes: pd.DataFrame) -> Dict[str, object]:
         if fraction < 0.01:
             recommendation = (
                 f"{n_multi} Concepts ({100*fraction:.1f}%) have multiple SABs. "
-                "Impact on membership scoring is likely small but should be verified "
-                "for pathway SABs specifically."
+                "Impact on membership scoring is likely small."
             )
         else:
             recommendation = (
                 f"WARNING: {n_multi} Concepts ({100*fraction:.1f}%) have multiple SABs. "
-                "Source-aware membership scoring may be unreliable. "
-                "Consider exporting nodes.csv with one representative SAB per Concept, "
-                "or implementing priority-based SAB resolution before scoring."
+                "Source-aware membership scoring may be unreliable."
             )
 
     report = {
@@ -493,19 +472,7 @@ def build_membership_map(
     node_sab_lookup: Dict[str, str],
     membership_sources: List[MembershipSource],
 ) -> Dict[str, List[str]]:
-    """
-    Returns {pathway_concept_id: [member_gene_concept_ids]}
-    built from explicit typed Concept-to-Concept edges.
-
-    Enforces MembershipSource constraints on BOTH endpoints:
-      - source (or target for reverse edges) SAB must match source.pathway_sab
-      - target (or source for reverse edges) SAB must be in source.gene_sabs
-      - predicate must be in the source-specific forward or reverse set
-
-    Previously this function pooled all predicates and only checked whether
-    endpoints were in broad pathway/gene ID sets — source.gene_sabs was defined
-    but never used. This version enforces the full triple constraint.
-    """
+    """Returns {pathway_concept_id: [member_gene_concept_ids]}."""
     pred_col = next(
         (c for c in ['predicate', 'relation', 'type', 'edge_type']
          if c in edges.columns), None
@@ -518,7 +485,6 @@ def build_membership_map(
 
     for src in membership_sources:
         if not src.forward_predicates and not src.reverse_predicates:
-            log.debug("Skipping %s — no predicates configured", src.pathway_sab)
             continue
 
         gene_sabs_upper = {s.upper() for s in src.gene_sabs}
@@ -530,27 +496,23 @@ def build_membership_map(
             b = clean_node_id(str(row['target']))
             pred = str(row[pred_col])
 
-            # Forward: edge stored as pathway → gene
             if pred in forward_set:
                 a_sab = node_sab_lookup.get(a, '')
                 b_sab = node_sab_lookup.get(b, '')
                 if a_sab == src.pathway_sab and b_sab in gene_sabs_upper:
                     membership_sets[a].add(b)
 
-            # Reverse: edge stored as gene → pathway
             if pred in reverse_set:
                 a_sab = node_sab_lookup.get(a, '')
                 b_sab = node_sab_lookup.get(b, '')
                 if b_sab == src.pathway_sab and a_sab in gene_sabs_upper:
                     membership_sets[b].add(a)
 
-    # Convert sets → sorted lists (deterministic order, no duplicates)
     membership: Dict[str, List[str]] = {
         k: sorted(v) for k, v in membership_sets.items()
     }
     n_with_members = sum(1 for v in membership.values() if v)
-    log.info("Membership map: %d pathways with ≥1 member gene "
-             "(source-SAB constraints enforced, duplicates removed)", n_with_members)
+    log.info("Membership map: %d pathways with ≥1 member gene", n_with_members)
     return membership
 
 
@@ -562,19 +524,7 @@ def build_neighbor_map(
     conditioned_edges: pd.DataFrame,
     node_to_idx: Dict[str, int],
 ) -> Dict[str, List[str]]:
-    """
-    Undirected adjacency built from the CONDITIONED edge set only.
-
-    local_bg compares a pathway's PPR score to its neighbors in the
-    biologically admissible flow graph. Using raw edges (which include
-    ontology structure, code links, and non-flow edges) would produce a
-    semantically muddy background — a node's neighborhood would include
-    ontology hierarchy parents, metadata edges, and non-propagating context
-    edges, making the local background biologically uninterpretable.
-
-    Caller should pass the kept_edges output from bifo_conditioning.py,
-    not edges_raw.csv.
-    """
+    """Undirected adjacency from conditioned edge set only."""
     neighbor_map: Dict[str, List[str]] = defaultdict(list)
     for _, row in conditioned_edges.iterrows():
         s = clean_node_id(str(row['source']))
@@ -583,6 +533,322 @@ def build_neighbor_map(
             neighbor_map[s].append(t)
             neighbor_map[t].append(s)
     return dict(neighbor_map)
+
+
+# ---------------------------------------------------------------------------
+# PPR infrastructure for empirical null (Option B: rebuild from conditioned edges)
+# These mirror bifo_conditioning.py exactly to guarantee identical propagation.
+# ---------------------------------------------------------------------------
+
+def _row_normalize(A: sp_sparse.csr_matrix) -> sp_sparse.csr_matrix:
+    """Row-normalize sparse matrix. Identical to bifo_conditioning.py."""
+    row_sums = np.asarray(A.sum(axis=1)).flatten()
+    inv = np.zeros_like(row_sums, dtype=float)
+    inv[row_sums > 0] = 1.0 / row_sums[row_sums > 0]
+    return sp_sparse.diags(inv) @ A
+
+
+def _personalized_pagerank(
+    A_tilde_T: sp_sparse.csr_matrix,
+    seed_idx: List[int],
+    n: int,
+    alpha: float = 0.5,
+    tol: float = 1e-10,
+    max_iter: int = 500,
+) -> np.ndarray:
+    """
+    PPR with pre-transposed row-normalized matrix.
+    Identical convergence logic to bifo_conditioning.py.
+    """
+    s = np.zeros(n, dtype=float)
+    if seed_idx:
+        s[seed_idx] = 1.0 / len(seed_idx)
+    f = s.copy()
+    for _ in range(max_iter):
+        nxt = (1.0 - alpha) * (A_tilde_T @ f) + alpha * s
+        if np.linalg.norm(nxt - f, ord=1) < tol:
+            f = nxt
+            break
+        f = nxt
+    total = f.sum()
+    if total > 0:
+        f /= total
+    return f
+
+
+def _build_operator_from_edges(
+    conditioned_edges: pd.DataFrame,
+    node_to_idx: Dict[str, int],
+) -> sp_sparse.csr_matrix:
+    """
+    Rebuild sparse PPR operator from conditioned kept_edges.
+    Uses only propagating=True edges (same as bifo_conditioning.py).
+    Uniform edge weights — matching all reported analyses.
+    """
+    n = len(node_to_idx)
+    work = conditioned_edges.copy()
+
+    if 'propagating' in work.columns:
+        work = work[work['propagating'] == True].copy()
+
+    work['source'] = work['source'].astype(str).map(
+        lambda x: removesuffix(x.strip(), ' CUI'))
+    work['target'] = work['target'].astype(str).map(
+        lambda x: removesuffix(x.strip(), ' CUI'))
+
+    mask = work['source'].isin(node_to_idx) & work['target'].isin(node_to_idx)
+    work = work[mask]
+
+    if work.empty:
+        log.warning("_build_operator_from_edges: no usable edges — returning empty operator")
+        return sp_sparse.csr_matrix((n, n), dtype=float)
+
+    rows = work['source'].map(node_to_idx).to_numpy()
+    cols = work['target'].map(node_to_idx).to_numpy()
+    vals = np.ones(len(rows), dtype=float)  # uniform weights — matching paper
+
+    A = sp_sparse.csr_matrix((vals, (rows, cols)), shape=(n, n), dtype=float)
+    log.info("_build_operator_from_edges: %dx%d operator from %d edges", n, n, len(rows))
+    return A
+
+
+# ---------------------------------------------------------------------------
+# Empirical null model
+# ---------------------------------------------------------------------------
+
+def build_null_seed_universe(
+    membership_map: Dict[str, List[str]],
+    node_to_idx: Dict[str, int],
+) -> List[str]:
+    """
+    Return sorted list of eligible null seed gene IDs.
+
+    Eligible genes are those that are:
+      (a) present in the conditioned propagation graph (in node_to_idx)
+      (b) connected to at least one scored pathway (in membership_map values)
+
+    This is the default matched background for null seed sampling.
+    Null seeds are drawn from genes that, like the real seeds, are connected
+    to pathway nodes via membership edges and are propagatable in the graph.
+    """
+    universe: Set[str] = set()
+    for members in membership_map.values():
+        for gene_id in members:
+            if gene_id in node_to_idx:
+                universe.add(gene_id)
+    result = sorted(universe)
+    log.info("Null seed universe: %d eligible pathway-connected genes", len(result))
+    return result
+
+
+# Module-level shared state for null permutation workers
+_NULL_SHARED: dict = {}
+
+
+def _null_worker_init(shared: dict) -> None:
+    """Initialize null permutation worker."""
+    global _NULL_SHARED
+    _NULL_SHARED = shared
+
+
+def _null_worker_run(perm_seed: int) -> np.ndarray:
+    """
+    Single null permutation run.
+
+    Draws a matched random seed set (size = n_seeds, without replacement
+    from the eligible pathway-connected gene universe), runs PPR, and
+    computes degree_norm scores for all pathway nodes.
+
+    The degree_norm formula is IDENTICAL to _score_chunk():
+        degree_norm = direct / sqrt(degree) if degree > 0 else direct
+    This guarantees that observed and null scores are directly comparable.
+
+    Returns 1D array of degree_norm scores in pathway_ids order.
+    """
+    g = _NULL_SHARED
+    A_tilde_T       = g['A_tilde_T']
+    node_to_idx     = g['node_to_idx']
+    n               = g['n']
+    alpha           = g['alpha']
+    universe        = g['universe']
+    n_seeds         = g['n_seeds']
+    pathway_ids     = g['pathway_ids']
+    pathway_degrees = g['pathway_degrees']
+
+    rng = np.random.default_rng(perm_seed)
+
+    if len(universe) < n_seeds:
+        chosen = list(universe)
+    else:
+        chosen = list(rng.choice(universe, size=n_seeds, replace=False))
+
+    seed_idx = [node_to_idx[g_id] for g_id in chosen if g_id in node_to_idx]
+
+    if not seed_idx:
+        return np.zeros(len(pathway_ids), dtype=float)
+
+    f = _personalized_pagerank(A_tilde_T, seed_idx, n, alpha=alpha)
+
+    null_scores = np.zeros(len(pathway_ids), dtype=float)
+    for i, pid in enumerate(pathway_ids):
+        if pid not in node_to_idx:
+            continue
+        idx    = node_to_idx[pid]
+        direct = float(f[idx])
+        deg    = pathway_degrees.get(pid, 0)
+        null_scores[i] = direct / math.sqrt(deg) if deg > 0 else direct
+
+    return null_scores
+
+
+def run_empirical_null(
+    conditioned_edges: pd.DataFrame,
+    node_to_idx: Dict[str, int],
+    pathway_ids: List[str],
+    pathway_degrees: Dict[str, int],
+    membership_map: Dict[str, List[str]],
+    n_seeds: int,
+    n_permutations: int = 1000,
+    alpha: float = 0.5,
+    n_cores: int = 1,
+    random_seed: int = 42,
+) -> np.ndarray:
+    """
+    Run N permutation PPR runs with matched random seed sets.
+
+    The conditioned PPR operator is rebuilt from kept_edges.csv (Option B):
+    no serialized matrix artifacts required. This ensures that the null
+    model uses exactly the same propagation graph as the observed scoring.
+
+    Parameters
+    ----------
+    conditioned_edges : kept_edges.csv from bifo_conditioning.py
+    node_to_idx       : {concept_id: matrix_index}
+    pathway_ids       : ordered list of pathway concept IDs (defines row order)
+    pathway_degrees   : {pathway_id: membership_degree}
+    membership_map    : {pathway_id: [member_gene_ids]}
+    n_seeds           : number of seeds per permutation (matches real run)
+    n_permutations    : number of permutation runs (default 1000)
+    alpha             : PPR restart probability (default 0.5)
+    n_cores           : parallel workers (default 1)
+    random_seed       : base random seed for reproducibility
+
+    Returns
+    -------
+    null_matrix : np.ndarray of shape (n_pathways, n_permutations)
+        Each column is one permutation's degree_norm scores in pathway_ids order.
+    """
+    log.info("Building conditioned operator for null model (%d permutations, alpha=%.2f)...",
+             n_permutations, alpha)
+
+    A = _build_operator_from_edges(conditioned_edges, node_to_idx)
+    A_tilde = _row_normalize(A)
+    A_tilde_T = A_tilde.T.tocsr()
+    n = A.shape[0]
+
+    universe = build_null_seed_universe(membership_map, node_to_idx)
+    if len(universe) == 0:
+        log.error("Null seed universe is empty — cannot run permutations")
+        return np.zeros((len(pathway_ids), n_permutations), dtype=float)
+
+    if len(universe) < n_seeds:
+        log.warning(
+            "Null seed universe (%d genes) < seed set size (%d). "
+            "Null runs will use all universe genes.",
+            len(universe), n_seeds
+        )
+
+    shared = {
+        'A_tilde_T':       A_tilde_T,
+        'node_to_idx':     node_to_idx,
+        'n':               n,
+        'alpha':           alpha,
+        'universe':        universe,
+        'n_seeds':         n_seeds,
+        'pathway_ids':     pathway_ids,
+        'pathway_degrees': pathway_degrees,
+    }
+
+    # Deterministic per-permutation seeds
+    rng = np.random.default_rng(random_seed)
+    perm_seeds = rng.integers(0, 2**31, size=n_permutations).tolist()
+
+    cores = min(n_cores, n_permutations) if n_cores > 1 else 1
+
+    if cores > 1:
+        log.info("Running %d null permutations across %d cores...", n_permutations, cores)
+        with mp.Pool(
+            processes=cores,
+            initializer=_null_worker_init,
+            initargs=(shared,)
+        ) as pool:
+            columns = pool.map(_null_worker_run, perm_seeds)
+    else:
+        log.info("Running %d null permutations (single core)...", n_permutations)
+        _null_worker_init(shared)
+        columns = [_null_worker_run(ps) for ps in perm_seeds]
+
+    null_matrix = np.column_stack(columns)
+    log.info("Null model complete: matrix shape %s", null_matrix.shape)
+    return null_matrix
+
+
+def compute_empirical_pvalues(
+    observed: np.ndarray,
+    null_matrix: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """
+    Compute per-pathway empirical p-values and BH-adjusted q-values.
+
+    Empirical p-value uses finite-sample correction (Phipson & Smyth 2010):
+        p = (1 + count(null >= observed)) / (1 + n_permutations)
+    This avoids zero p-values and is unbiased under the permutation null.
+
+    BH correction is applied across all tested pathways to control FDR.
+
+    Parameters
+    ----------
+    observed    : 1D array of observed degree_norm scores (n_pathways,)
+    null_matrix : 2D array of null scores (n_pathways, n_permutations)
+
+    Returns
+    -------
+    dict with arrays of length n_pathways:
+        empirical_p : finite-sample-corrected empirical p-value
+        empirical_q : BH-adjusted FDR q-value
+        null_mean   : mean of null distribution
+        null_sd     : standard deviation of null distribution
+        null_z      : z-score = (observed - null_mean) / null_sd
+    """
+    n_pathways, n_perm = null_matrix.shape
+
+    exceed_counts = (null_matrix >= observed[:, np.newaxis]).sum(axis=1)
+    empirical_p = (1.0 + exceed_counts) / (1.0 + n_perm)
+
+    # BH FDR correction
+    n = len(empirical_p)
+    order = np.argsort(empirical_p)
+    ranks = np.empty(n, dtype=int)
+    ranks[order] = np.arange(1, n + 1)
+    empirical_q_raw = np.minimum(1.0, empirical_p * n / ranks)
+    # Enforce monotonicity
+    empirical_q_mono = np.minimum.accumulate(empirical_q_raw[order][::-1])[::-1]
+    empirical_q = np.empty(n)
+    empirical_q[order] = empirical_q_mono
+
+    null_mean = null_matrix.mean(axis=1)
+    null_sd   = null_matrix.std(axis=1)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        null_z = np.where(null_sd > 0, (observed - null_mean) / null_sd, 0.0)
+
+    return {
+        'empirical_p': empirical_p,
+        'empirical_q': empirical_q,
+        'null_mean':   null_mean,
+        'null_sd':     null_sd,
+        'null_z':      null_z,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -603,7 +869,6 @@ def compute_pathway_scores(
     n_cores: int = 1,
 ) -> List[PathwayScore]:
 
-    # Name lookup
     name_col = next(
         (c for c in ['name', 'pref_term', 'label', 'preferred_name']
          if c in nodes.columns), None
@@ -616,19 +881,12 @@ def compute_pathway_scores(
             nodes[name_col].astype(str)
         ))
 
-    # Membership degree per pathway (for degree_norm and degree_flag)
     pathway_degrees = {pid: len(m) for pid, m in membership_map.items()}
     all_degrees = list(pathway_degrees.values()) or [0]
     p90_degree = float(np.percentile(all_degrees, 90)) if len(all_degrees) >= 10 else float('inf')
 
-    # Neighbor map built from CONDITIONED edges only (fix 3)
     neighbor_map = build_neighbor_map(conditioned_edges, node_to_idx)
 
-    # Top seed nodes by conditioned PPR score.
-    # NOTE: These are global top seeds, not per-pathway attribution.
-    # Stored as top_global_seeds (fix 5) — labeled honestly.
-    # True per-pathway attribution would require path-tracing through the
-    # PPR transition matrix, which is not implemented here.
     global_top_seeds: List[str] = [
         sid for sid, _ in sorted(
             [(s, float(scores_cond[node_to_idx[s]]))
@@ -637,7 +895,6 @@ def compute_pathway_scores(
         )[:5]
     ]
 
-    # Build shared read-only dict for workers
     shared = {
         'scores_cond':      scores_cond,
         'scores_raw':       scores_raw,
@@ -682,17 +939,7 @@ def evaluate_pathway_recovery(
     score_variant: str = 'degree_norm',
     k_values: Tuple[int, ...] = (10, 20, 50),
 ) -> Dict[str, float]:
-    """
-    Evaluate pathway recovery against the CHD reference set.
-
-    Metrics
-    -------
-    top_k_precision        : fraction of top-k in CHD set
-    top_k_enrichment_ratio : top-k CHD rate / background CHD rate
-    mean_rank_chd          : mean rank of CHD pathways (conditioned)
-    mean_rank_chd_raw      : mean rank of CHD pathways (raw arm)
-    rank_improvement       : mean_rank_raw - mean_rank_cond (positive = better)
-    """
+    """Evaluate pathway recovery against the reference set."""
     if not scored:
         return {}
 
@@ -731,12 +978,18 @@ def evaluate_pathway_recovery(
             metrics['mean_rank_chd_raw'] - metrics['mean_rank_chd_cond']
         )
 
-    # Hub contamination: fraction of top-k that are flagged as hubs
     for k in k_values:
         top_k = ranked[:k]
         metrics[f'top{k}_hub_fraction'] = (
             sum(1 for p in top_k if p.degree_flag) / k
         )
+
+    # Empirical null summary (if available)
+    n_sig_05 = sum(1 for p in scored if p.empirical_q is not None and p.empirical_q < 0.05)
+    n_sig_10 = sum(1 for p in scored if p.empirical_q is not None and p.empirical_q < 0.10)
+    if any(p.empirical_q is not None for p in scored):
+        metrics['n_significant_q05'] = float(n_sig_05)
+        metrics['n_significant_q10'] = float(n_sig_10)
 
     return metrics
 
@@ -760,6 +1013,9 @@ def score_pathways(
     max_members: Optional[int] = None,
     excluded_name_patterns: Optional[List[str]] = None,
     n_cores: int = 1,
+    n_permutations: int = 0,
+    ppr_alpha: float = 0.5,
+    random_seed: int = 42,
 ) -> Tuple[List[PathwayScore], Dict[str, float]]:
     """
     Score all pathway nodes and return (ranked_scores, metrics).
@@ -768,26 +1024,27 @@ def score_pathways(
     ----------
     nodes                   : nodes.csv DataFrame (must have sab column)
     edges_raw               : edges_raw.csv -- for membership traversal
-    conditioned_edges       : kept_edges.csv -- for local_bg
+    conditioned_edges       : kept_edges.csv -- for local_bg and null model
     scores_cond             : PPR vector from conditioned arm
     scores_raw              : PPR vector from raw arm
     node_to_idx             : {concept_id: matrix_index}
-    seed_node_ids           : seed Concept IDs (for diagnostics)
+    seed_node_ids           : seed Concept IDs
     chd_pathway_set         : reference Concept IDs for evaluation
     membership_sources      : override DEFAULT_MEMBERSHIP_SOURCES if provided
-    score_variant           : score variant for metrics ranking
+    score_variant           : score variant for ranking and metrics
     min_members             : exclude pathways with fewer mapped member genes
-                              (default 1)
     max_members             : exclude pathways with more mapped member genes
-                              (default None = no upper limit). Use to remove
-                              giant hub pathways that dilute signal.
-    excluded_name_patterns  : uppercase substrings; pathways whose names
-                              contain any of these are excluded. Default
-                              removes MSigDB C3 motif and miRNA sets.
+    excluded_name_patterns  : name substrings to exclude (MSigDB motif/miRNA sets)
+    n_cores                 : parallel workers
+    n_permutations          : number of null permutation runs (0 = disabled)
+                              When > 0, computes empirical_p, empirical_q,
+                              null_mean, null_sd, null_z for each pathway.
+                              Null seeds drawn from eligible pathway-connected genes.
+    ppr_alpha               : PPR restart probability for null runs (default 0.5)
+    random_seed             : base random seed for null permutations (default 42)
     """
     sources = membership_sources or DEFAULT_MEMBERSHIP_SOURCES
 
-    # Default exclusion patterns -- MSigDB C3 motif and miRNA sets
     if excluded_name_patterns is None:
         excluded_name_patterns = ['_Q2', '_Q3', '_Q4', '_Q5', '_Q6', 'MIR']
 
@@ -807,43 +1064,103 @@ def score_pathways(
         n_cores=n_cores,
     )
 
-    # Filter 1: minimum member gene count
+    # Filters
     n_before = len(scored)
     if min_members > 0:
         scored = [p for p in scored if p.member_gene_count >= min_members]
         log.info("min_members filter (>=%d): %d -> %d pathways",
                  min_members, n_before, len(scored))
 
-    # Filter 2: maximum member gene count
     if max_members is not None:
         n_before2 = len(scored)
         scored = [p for p in scored if p.member_gene_count <= max_members]
         log.info("max_members filter (<=%d): %d -> %d pathways",
                  max_members, n_before2, len(scored))
 
-    # Filter 3: excluded name patterns
     if excluded_name_patterns:
         n_before2 = len(scored)
         scored = [p for p in scored
                   if not any(pat.upper() in p.name.upper()
                              for pat in excluded_name_patterns)]
-        log.info("name pattern filter: %d -> %d pathways (excluded %d sets)",
-                 n_before2, len(scored), n_before2 - len(scored))
+        log.info("name pattern filter: %d -> %d pathways",
+                 n_before2, len(scored))
+
+    # Empirical null model
+    if n_permutations > 0 and scored:
+        log.info("Running empirical null model (%d permutations)...", n_permutations)
+
+        pathway_ids_ordered = [p.concept_id for p in scored]
+        pathway_degrees_map = {p.concept_id: p.degree for p in scored}
+        observed_scores = np.array([p.degree_norm for p in scored])
+        # Build null universe from RETAINED scored pathways only (post-filter)
+        # Excluded pathways should not contribute genes to the null universe
+        scored_pathway_ids = set(pathway_ids_ordered)
+        membership_map_scored = {
+            pid: members
+            for pid, members in membership_map.items()
+            if pid in scored_pathway_ids
+        }
+
+        # Use effective seed count: seeds that actually map into the graph
+        effective_seed_ids = [s for s in seed_node_ids if s in node_to_idx]
+        n_effective_seeds = len(effective_seed_ids)
+        if n_effective_seeds == 0:
+            log.error("No seed nodes found in graph — skipping null permutations")
+        else:
+            if n_effective_seeds < len(seed_node_ids):
+                log.warning(
+                    "Null model uses %d effective seeds (%d provided, %d absent from graph)",
+                    n_effective_seeds, len(seed_node_ids),
+                    len(seed_node_ids) - n_effective_seeds
+                )
+
+        if n_effective_seeds > 0:
+            null_matrix = run_empirical_null(
+            conditioned_edges=conditioned_edges,
+            node_to_idx=node_to_idx,
+            pathway_ids=pathway_ids_ordered,
+            pathway_degrees=pathway_degrees_map,
+            membership_map=membership_map_scored,  # scored pathways only
+            n_seeds=n_effective_seeds,
+            n_permutations=n_permutations,
+            alpha=ppr_alpha,
+            n_cores=n_cores,
+                random_seed=random_seed,
+            )
+
+            pval_results = compute_empirical_pvalues(observed_scores, null_matrix)
+
+            for i, p in enumerate(scored):
+                p.empirical_p = float(pval_results['empirical_p'][i])
+                p.empirical_q = float(pval_results['empirical_q'][i])
+                p.null_mean   = float(pval_results['null_mean'][i])
+                p.null_sd     = float(pval_results['null_sd'][i])
+                p.null_z      = float(pval_results['null_z'][i])
+
+            n_sig = sum(1 for p in scored if p.empirical_q is not None and p.empirical_q < 0.05)
+            log.info("Empirical null complete: %d / %d pathways significant at q < 0.05",
+                     n_sig, len(scored))
+        # Store null run metadata for reporting — will be added to metrics after evaluate
+        _null_universe_size = len(build_null_seed_universe(membership_map_scored, node_to_idx))
+        _n_effective_seeds = n_effective_seeds
 
     metrics = evaluate_pathway_recovery(scored, score_variant=score_variant)
+    # Add null model metadata to metrics if available
+    if n_permutations > 0 and scored and any(p.empirical_q is not None for p in scored):
+        metrics['null_universe_size'] = float(_null_universe_size)
+        metrics['n_effective_seeds'] = float(_n_effective_seeds)
+        metrics['n_permutations_run'] = float(n_permutations)
     return scored, metrics
-
 
 
 # ---------------------------------------------------------------------------
 # SAB priority for multi-SAB concept resolution.
-# When a Concept has multiple SAB rows, the SAB earliest in this list wins.
-# Configurable — pass a custom list to build_node_sab_lookup().
+# ---------------------------------------------------------------------------
 DEFAULT_SAB_PRIORITY: List[str] = [
-    'MSIGDB', 'REACTOME', 'GO', 'WIKIPATHWAYS', 'KEGG', 'WP',  # pathway
-    'HGNC', 'NCBIGENE', 'ENTREZ', 'NCBI',                       # gene
-    'UNIPROTKB', 'PR',                                           # protein
-    'MONDO', 'OMIM', 'DOID',                                     # disease
+    'MSIGDB', 'REACTOME', 'GO', 'WIKIPATHWAYS', 'KEGG', 'WP',
+    'HGNC', 'NCBIGENE', 'ENTREZ', 'NCBI',
+    'UNIPROTKB', 'PR',
+    'MONDO', 'OMIM', 'DOID',
 ]
 
 
@@ -851,15 +1168,7 @@ def build_node_sab_lookup(
     nodes: pd.DataFrame,
     sab_priority: Optional[List[str]] = None,
 ) -> Dict[str, str]:
-    """
-    Build {concept_id: sab} lookup from nodes table.
-
-    When a Concept appears with multiple SABs (multiple rows in nodes.csv),
-    resolves to the SAB that appears earliest in sab_priority rather than
-    using first-occurrence (export-order dependent) or last-write-wins.
-
-    Falls back to first-occurrence only for SABs not in sab_priority.
-    """
+    """Build {concept_id: sab} lookup with priority-based resolution."""
     id_col = next((c for c in ['node_id', 'id', 'CUI'] if c in nodes.columns), None)
     if id_col is None or 'sab' not in nodes.columns:
         log.warning("Cannot build node SAB lookup -- nodes.csv missing id or sab column")
@@ -876,10 +1185,7 @@ def build_node_sab_lookup(
     if n_multi == 0:
         return dict(zip(id_series, sab_series))
 
-    log.info(
-        "%d Concepts have multiple SAB rows -- resolving by priority "
-        "(MSIGDB>REACTOME>GO>HGNC>...). Run --preflight to inspect.", n_multi
-    )
+    log.info("%d Concepts have multiple SAB rows -- resolving by priority.", n_multi)
 
     best: Dict[str, tuple] = {}
     for nid, sab in zip(id_series, sab_series):
@@ -902,67 +1208,62 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  Preflight check only (--nodes is the only required arg):
+  Preflight check only:
     python score_pathways.py --nodes nodes.csv --preflight
 
-  Full scoring run:
-    python score_pathways.py --nodes nodes.csv --edges-raw edges_raw.csv \
-      --edges-conditioned kept_edges.csv --scores-cond scores_cond.npy \
-      --scores-raw scores_raw.npy --node-index node_index.json \
-      --seed-nodes seed_nodes.txt --out-csv pathway_scores.csv \
+  Full scoring run (observed scores only):
+    python score_pathways.py --nodes nodes.csv --edges-raw edges_raw.csv \\
+      --edges-conditioned kept_edges.csv --scores-cond scores_cond.npy \\
+      --scores-raw scores_raw.npy --node-index node_index.json \\
+      --seed-nodes seed_nodes.txt --out-csv pathway_scores.csv \\
       --out-json pathway_scores.json
+
+  With empirical null model (1000 permutations, 4 cores):
+    python score_pathways.py --nodes nodes.csv --edges-raw edges_raw.csv \\
+      --edges-conditioned kept_edges.csv --scores-cond scores_cond.npy \\
+      --scores-raw scores_raw.npy --node-index node_index.json \\
+      --seed-nodes seed_nodes.txt --out-csv pathway_scores.csv \\
+      --out-json pathway_scores.json \\
+      --n-permutations 1000 --n-cores 4
         """
     )
 
-    # --nodes required in both modes
-    parser.add_argument("--nodes",             required=True,
-                        help="nodes.csv from DDKG export (must have sab column)")
-    # --preflight makes all scoring arguments optional
-    parser.add_argument("--preflight",         action="store_true",
-                        help="Inspect nodes.csv and exit. Only --nodes required.")
-    # Scoring arguments -- optional at parse time, validated below
-    parser.add_argument("--edges-raw",         default=None,
-                        help="edges_raw.csv -- for membership traversal")
-    parser.add_argument("--edges-conditioned", default=None,
-                        help="kept_edges.csv from bifo_conditioning.py -- for local_bg")
-    parser.add_argument("--scores-cond",       default=None,
-                        help="PPR scores conditioned arm (.npy or txt)")
-    parser.add_argument("--scores-raw",        default=None,
-                        help="PPR scores raw arm (.npy or txt)")
-    parser.add_argument("--node-index",        default=None,
-                        help="node_id->index JSON from bifo_conditioning.py")
-    parser.add_argument("--seed-nodes",        default=None,
-                        help="Seed concept IDs (one per line)")
-    parser.add_argument("--chd-pathways",      default=None,
-                        help="CHD reference pathway concept IDs (one per line)")
-    parser.add_argument("--out-csv",           default=None,
-                        help="Output ranked pathway scores CSV")
-    parser.add_argument("--out-json",          default=None,
-                        help="Output metrics JSON")
+    parser.add_argument("--nodes",             required=True)
+    parser.add_argument("--preflight",         action="store_true")
+    parser.add_argument("--edges-raw",         default=None)
+    parser.add_argument("--edges-conditioned", default=None)
+    parser.add_argument("--scores-cond",       default=None)
+    parser.add_argument("--scores-raw",        default=None)
+    parser.add_argument("--node-index",        default=None)
+    parser.add_argument("--seed-nodes",        default=None)
+    parser.add_argument("--chd-pathways",      default=None)
+    parser.add_argument("--out-csv",           default=None)
+    parser.add_argument("--out-json",          default=None)
     parser.add_argument("--score-variant",     default="degree_norm",
-                        choices=["direct","member_mean","member_max","degree_norm","local_bg"],
-                        help="Score variant for ranking AND metrics (default: degree_norm)")
-    parser.add_argument("--min-members",       type=int, default=1,
-                        help="Exclude pathways with fewer than this many mapped member "
-                             "genes (default 1 -- removes zero-member motif/miRNA sets)")
-    parser.add_argument("--max-members",       type=int, default=None,
-                        help="Exclude pathways with more than this many mapped member "
-                             "genes (default: no limit). Use to remove giant hub "
-                             "pathways that dilute signal (e.g. --max-members 300)")
+                        choices=["direct","member_mean","member_max","degree_norm","local_bg"])
+    parser.add_argument("--min-members",       type=int, default=1)
+    parser.add_argument("--max-members",       type=int, default=None)
     parser.add_argument("--n-cores",           type=int, default=1,
-                        help="Number of parallel worker processes for pathway scoring "
-                             "(default: 1). Use 0 to auto-detect all available cores.")
+                        help="Parallel workers (0 = auto-detect). Used for both "
+                             "observed scoring and null permutations.")
+    parser.add_argument("--n-permutations",    type=int, default=0,
+                        help="Number of null permutation runs for empirical p-values "
+                             "(default: 0 = disabled). Recommended: 1000. "
+                             "Null seeds drawn from eligible pathway-connected genes.")
+    parser.add_argument("--ppr-alpha",         type=float, default=0.5,
+                        help="PPR restart probability for null runs (default: 0.5). "
+                             "Should match the alpha used in bifo_conditioning.py.")
+    parser.add_argument("--perm-random-seed",  type=int, default=42,
+                        help="Base random seed for null permutations (default: 42).")
 
     args = parser.parse_args()
     nodes = load_table(args.nodes)
 
-    # --- Preflight mode ---
     if args.preflight:
         report = preflight_check(nodes)
         print(json.dumps(report, indent=2))
         raise SystemExit(0)
 
-    # --- Scoring mode: validate required args now ---
     required_for_scoring = {
         "--edges-raw":         args.edges_raw,
         "--edges-conditioned": args.edges_conditioned,
@@ -975,10 +1276,7 @@ Examples:
     }
     missing = [k for k, v in required_for_scoring.items() if v is None]
     if missing:
-        parser.error(
-            "Scoring mode requires: " + ", ".join(missing) +
-            "\nUse --preflight with only --nodes to inspect your export."
-        )
+        parser.error("Scoring mode requires: " + ", ".join(missing))
 
     edges_raw         = load_table(args.edges_raw)
     conditioned_edges = load_table(args.edges_conditioned)
@@ -989,11 +1287,9 @@ Examples:
     chd_set: Set[str] = set()
     if args.chd_pathways and Path(args.chd_pathways).exists():
         chd_set = set(_read_node_list(args.chd_pathways))
-        log.info("Loaded %d CHD reference pathway IDs", len(chd_set))
+        log.info("Loaded %d reference pathway IDs", len(chd_set))
 
     n_cores = args.n_cores if args.n_cores > 0 else mp.cpu_count()
-    if n_cores > 1:
-        log.info("Parallel scoring enabled: %d cores", n_cores)
 
     scored, metrics = score_pathways(
         nodes=nodes,
@@ -1008,6 +1304,9 @@ Examples:
         min_members=args.min_members,
         max_members=args.max_members,
         n_cores=n_cores,
+        n_permutations=args.n_permutations,
+        ppr_alpha=args.ppr_alpha,
+        random_seed=args.perm_random_seed,
     )
 
     if not scored:
@@ -1021,9 +1320,15 @@ Examples:
     log.info("Wrote %d pathway scores to %s", len(df), args.out_csv)
 
     output = {
-        "parameters": {"score_variant": args.score_variant,
-                        "n_seeds": len(seed_ids),
-                        "n_chd_reference": len(chd_set)},
+        "parameters": {
+            "score_variant":      args.score_variant,
+            "n_seeds_provided":   len(seed_ids),
+            "n_seeds_effective":  metrics.get('n_effective_seeds', len(seed_ids)),
+            "n_chd_reference":    len(chd_set),
+            "n_permutations":     args.n_permutations,
+            "ppr_alpha":          args.ppr_alpha,
+            "random_seed":        args.perm_random_seed,
+        },
         "metrics": metrics,
         "top_50": [p.to_dict() for p in ranked[:50]],
     }
@@ -1032,22 +1337,32 @@ Examples:
 
     print(f"\n=== Pathway Scoring Summary (score_variant={args.score_variant}) ===")
     print(f"  Pathways scored:          {len(ranked)}")
-    print(f"  CHD pathways (reference): {metrics.get('n_chd_in_reference', 0):.0f}")
-    print(f"  Background CHD rate:      {metrics.get('background_chd_rate', 0):.3f}")
+    print(f"  Reference pathways:       {metrics.get('n_chd_in_reference', 0):.0f}")
+    print(f"  Background rate:          {metrics.get('background_chd_rate', 0):.3f}")
     print(f"  Top-10 precision:         {metrics.get('top10_precision', 0):.3f}")
     print(f"  Top-10 enrichment:        {metrics.get('top10_enrichment_ratio', float('nan')):.2f}x")
     print(f"  Top-20 precision:         {metrics.get('top20_precision', 0):.3f}")
-    print(f"  Mean rank CHD (cond):     {metrics.get('mean_rank_chd_cond', float('nan')):.1f}")
-    print(f"  Mean rank CHD (raw):      {metrics.get('mean_rank_chd_raw', float('nan')):.1f}")
+    print(f"  Mean rank (cond):         {metrics.get('mean_rank_chd_cond', float('nan')):.1f}")
+    print(f"  Mean rank (raw):          {metrics.get('mean_rank_chd_raw', float('nan')):.1f}")
     delta = metrics.get('rank_improvement_cond_vs_raw', float('nan'))
-    print(f"  Rank improvement:         {delta:+.1f} (positive = conditioning helps)")
+    print(f"  Rank improvement:         {delta:+.1f}")
+    if args.n_permutations > 0:
+        print(f"\n  Empirical null ({args.n_permutations} permutations):")
+        print(f"  Null universe size:       {metrics.get('null_universe_size', 0):.0f} genes")
+        print(f"  Effective seeds used:     {metrics.get('n_effective_seeds', 0):.0f}")
+        print(f"  Significant (q<0.05):     {metrics.get('n_significant_q05', 0):.0f}")
+        print(f"  Significant (q<0.10):     {metrics.get('n_significant_q10', 0):.0f}")
     print(f"\n  Top 10 pathways [{args.score_variant}]:")
     for i, p in enumerate(ranked[:10], 1):
+        sig = ""
+        if p.empirical_q is not None:
+            sig = f" q={p.empirical_q:.3f}"
         markers = ("\u2605" if p.in_chd_set else " ") + ("H" if p.degree_flag else " ")
-        print(f"    {i:2d}. [{markers}][{p.sab:10s}] {p.name[:55]:55s} "
-              f"{getattr(p, args.score_variant):.5f}")
-    print(f"\n  Legend: \u2605=CHD reference  H=hub (>p90 degree)")
-    print(f"  NOTE: contributing_seeds = top-5 global seeds, not per-pathway attribution")
+        print(f"    {i:2d}. [{markers}][{p.sab:10s}] {p.name[:50]:50s} "
+              f"{getattr(p, args.score_variant):.5f}{sig}")
+    print(f"\n  Legend: \u2605=reference  H=hub (>p90 degree)")
+    if args.n_permutations > 0:
+        print(f"  q = BH-adjusted empirical q-value vs matched null (N={args.n_permutations})")
 
 
 if __name__ == "__main__":

@@ -137,7 +137,7 @@ ORDER BY source, predicate, target;
 //   python bifo_conditioning.py \
 //     --nodes         c4_notch_nodes.csv \
 //     --edges         c4_notch_edges_all.csv \
-//     --mapping       config/bifo_ddkg_mapping.yaml \
+//     --mapping       config/bifo_mapping.yaml \
 //     --seed-nodes    data/benchmark/c4_notch_seed_nodes.txt \
 //     --heldout-nodes data/benchmark/c4_notch_heldout_nodes.txt \
 //     --out-json      results/c4_notch/results.json

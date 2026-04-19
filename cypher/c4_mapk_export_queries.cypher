@@ -161,7 +161,7 @@ ORDER BY source, predicate, target;
 //   python bifo_conditioning.py \
 //     --nodes         c4_mapk_nodes.csv \
 //     --edges         c4_mapk_edges_all.csv \
-//     --mapping       config/bifo_ddkg_mapping.yaml \
+//     --mapping       config/bifo_mapping.yaml \
 //     --seed-nodes    data/benchmark/c4_mapk_seed_nodes.txt \
 //     --heldout-nodes data/benchmark/c4_mapk_heldout_nodes.txt \
 //     --out-json      results/c4_mapk/results.json

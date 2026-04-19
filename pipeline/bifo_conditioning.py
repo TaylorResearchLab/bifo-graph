@@ -610,7 +610,6 @@ def condition_edges(
         row_out["propagating"] = classification in {
             "mechanistic",
             "weak_mechanistic_or_observational",
-            "contextual_constraint",
         }
         kept_rows.append(row_out)
         edge_flow_map[idx] = flow or ""

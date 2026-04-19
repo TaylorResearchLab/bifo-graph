@@ -93,6 +93,8 @@ bifo-graph/
 │       ├── heldout_nodes.txt    5 held-out CHD genes
 │       └── run_test.sh          One-command test run script
 │
+├── BENCHMARK_MANIFEST.md        Frozen parameter registry and expected output metrics
+│
 └── results/                     Pre-computed results (shipped with repo)
     ├── chd_benchmark/
     │   └── chd_resampling_summary.json   Exhaustive 3,003-split resampling summary
@@ -127,30 +129,43 @@ with the repository in `data/benchmark/`. No Neo4j connection is required to
 reproduce the primary benchmark results.
 
 ```bash
-# 1. Run BIFO conditioning + PPR
+# 1. Run BIFO conditioning + PPR propagation
 python pipeline/bifo_conditioning.py \
-  --edges-merged data/benchmark/chd_curated_edges_raw.csv.zip \
-  --pathway-edges data/benchmark/chd_curated_pathway_membership_edges.csv.zip \
   --nodes data/benchmark/chd_curated_nodes.csv \
+  --edges data/benchmark/chd_curated_edges_raw.csv.zip \
+  --mapping config/bifo_ddkg_mapping.yaml \
   --seed-nodes data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
-  --config config/bifo_ddkg_mapping.yaml \
-  --out-stem results/chd_benchmark/results
+  --out-json results/chd_benchmark/results.json
+
+# Outputs written alongside results.json:
+#   results_scores_cond.npy, results_scores_raw.npy,
+#   results_node_index.json, results_kept_edges.csv
 
 # 2. Score pathways
 python pipeline/score_pathways.py \
-  --scores results/chd_benchmark/results_scores_cond.npy \
-  --kept-edges results/chd_benchmark/results_kept_edges.csv \
-  --pathway-reference data/benchmark/chd_pathway_reference.txt \
-  --out results/chd_benchmark/pathway_scores.csv
+  --nodes data/benchmark/chd_curated_nodes.csv \
+  --edges-raw data/benchmark/chd_curated_edges_raw.csv.zip \
+  --edges-conditioned results/chd_benchmark/results_kept_edges.csv \
+  --scores-cond results/chd_benchmark/results_scores_cond.npy \
+  --scores-raw results/chd_benchmark/results_scores_raw.npy \
+  --node-index results/chd_benchmark/results_node_index.json \
+  --seed-nodes data/benchmark/chd_seed_nodes.txt \
+  --chd-pathways data/benchmark/chd_pathway_reference.txt \
+  --out-csv results/chd_benchmark/pathway_scores_standard.csv \
+  --out-json results/chd_benchmark/pathway_metrics_standard.json
 
 # 3. Run baselines
 python pipeline/baseline_enrichment.py \
   --edges-merged data/benchmark/chd_curated_edges_raw.csv.zip \
-  --kept-edges results/chd_benchmark/results_kept_edges.csv \
+  --node-index results/chd_benchmark/results_node_index.json \
+  --scores-raw results/chd_benchmark/results_scores_raw.npy \
+  --scores-cond results/chd_benchmark/results_scores_cond.npy \
+  --bifo-scores results/chd_benchmark/pathway_scores_standard.csv \
+  --chd-pathways data/benchmark/chd_pathway_reference.txt \
   --seed-nodes data/benchmark/chd_seed_nodes.txt \
-  --pathway-reference data/benchmark/chd_pathway_reference.txt \
-  --out results/chd_benchmark/baseline_comparison.json
+  --out-csv results/chd_benchmark/baseline_comparison.csv \
+  --out-json results/chd_benchmark/baseline_comparison.json
 
 # 4. Run exhaustive resampling (3,003 splits)
 python pipeline/chd_resampling_exhaustive.py \
@@ -165,8 +180,7 @@ python pipeline/chd_resampling_exhaustive.py \
 
 ```bash
 # Full KF-CHD pipeline (all stages)
-# Full KF-CHD pipeline (all stages)
-bash scripts/run_full_pipeline.sh chd maf001 0 neo4j PASSWORD <your_bolt_instance_address> 
+bash scripts/run_full_pipeline.sh chd maf001 0 neo4j PASSWORD <your_bolt_instance_address>
 
 # Full KF-NBL pipeline
 bash scripts/run_full_pipeline.sh nbl maf001 0 neo4j PASSWORD <your_bolt_instance_address>
@@ -192,8 +206,21 @@ bash run_test.sh
 | 2.4 | `run_seed_lookup.sh` | Gene symbol list | `seed_cuis.txt` |
 | 3 | `run_conditioning.sh` | `edges_merged.csv`, `nodes.csv`, seeds | `results_scores_*.npy`, `results_kept_edges.csv` |
 | 4 | `run_scoring.sh` | Score vectors, pathway membership | `pathway_scores_*.csv`, `pathway_metrics_*.json` |
-| 5 | `run_baseline.sh` | Edge files, seeds, pathway reference | `baseline_comparison.json` |
+| 5 | `run_baseline.sh` | Edge files, seeds, pathway reference | `baseline_comparison.csv`, `baseline_comparison.json` |
 | 6 | `run_resampling.sh` | Kept edges, pathway reference | `resampling_summary.json` |
+
+---
+
+## Benchmark freeze
+
+Frozen benchmark parameters and expected output metrics are documented in
+`BENCHMARK_MANIFEST.md` at the repository root. This file serves as the
+reproducibility contract for the manuscript: if any output metric differs
+from the manifest values, the run is considered non-reproducible.
+
+Pipeline scripts are in `pipeline/`, the YAML mapping (v0.7.1) is in
+`config/`, and seed, heldout, and reference files for all benchmark cohorts
+are in `data/benchmark/`.
 
 ---
 

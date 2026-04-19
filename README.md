@@ -155,6 +155,12 @@ python pipeline/score_pathways.py \
   --out-csv results/chd_benchmark/pathway_scores_standard.csv \
   --out-json results/chd_benchmark/pathway_metrics_standard.json
 
+# Note on edge files: pathway membership edges are used only during pathway
+# scoring (step 2 above), not during BIFO conditioning (step 1). The
+# conditioning step operates on the raw mechanistic edge file only.
+# The --edges-merged argument to baseline_enrichment.py supplies the merged
+# file (raw + membership) for Fisher neighborhood expansion.
+
 # 3. Run baselines
 python pipeline/baseline_enrichment.py \
   --edges-merged data/benchmark/chd_curated_edges_raw.csv.zip \
@@ -192,6 +198,21 @@ bash scripts/run_full_pipeline.sh nbl maf001 0 neo4j PASSWORD <your_bolt_instanc
 cd examples/minimal_test/
 bash run_test.sh
 ```
+
+---
+
+## Mapping to manuscript sections
+
+| Methods section | Script / component |
+|-----------------|-------------------|
+| §1 Knowledge graph source | `cypher/` export queries, `pipeline/clean_cypher_output.py` |
+| §2 BIFO conditioning | `pipeline/bifo_conditioning.py`, `config/bifo_ddkg_mapping.yaml` |
+| §3 Personalized PageRank | `pipeline/bifo_conditioning.py` (PPR loop) |
+| §4 Pathway scoring | `pipeline/score_pathways.py` |
+| §5 Benchmark design | `data/benchmark/`, `BENCHMARK_MANIFEST.md` |
+| §6 Baseline enrichment | `pipeline/baseline_enrichment.py` |
+| §9 Exhaustive resampling | `pipeline/chd_resampling_exhaustive.py` |
+| §10 KF cohort analysis | `scripts/run_full_pipeline.sh`, `pipeline/kf_resampling.py` |
 
 ---
 
@@ -233,7 +254,8 @@ The YAML file encodes the BIFO flow class definitions (v0.7.1):
 - **5** classification tiers: `mechanistic`, `weak_mechanistic_or_observational`,
   `observational`, `contextual_constraint`, `nonpropagating_context`
 
-This file is the primary scientific artifact of the BIFO framework. Modifying
+This file encodes the operational instantiation of BIFO for the DDKG and is
+the primary artifact controlling propagation behavior in this analysis. Modifying
 it changes which edges are admissible for propagation and will alter all
 downstream results.
 

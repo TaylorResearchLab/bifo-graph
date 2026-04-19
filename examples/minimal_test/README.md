@@ -25,7 +25,7 @@ See the query file for exact output format requirements.
 ## Step 2 — Run the pipeline
 
 ```bash
-cd minimal_test_run/
+cd examples/minimal_test/
 bash run_test.sh
 ```
 

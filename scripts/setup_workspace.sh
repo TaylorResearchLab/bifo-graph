@@ -54,7 +54,7 @@ link_item() {
 }
 
 # Config
-link_item "$REPO_DIR/config/bifo_ddkg_mapping.yaml" "$WORK_DIR/bifo_ddkg_mapping.yaml"
+link_item "$REPO_DIR/config/bifo_mapping.yaml" "$WORK_DIR/bifo_mapping.yaml"
 
 # NCC pathway gene sets
 link_item "$REPO_DIR/data/ncc_cilia_pathways" "$WORK_DIR/ncc_cilia_pathways"

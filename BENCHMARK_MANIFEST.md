@@ -16,7 +16,7 @@
 | c4_random_seed | 42 | `data/benchmark/c4_*_seed_nodes.txt` |
 | convergence_tolerance | 1e-10 | `pipeline/bifo_conditioning.py` |
 | max_ppr_iterations | 500 | `pipeline/bifo_conditioning.py` |
-| yaml_version | v0.7.1 | `config/bifo_ddkg_mapping.yaml` |
+| yaml_version | v0.7.1 | `config/bifo_mapping.yaml` |
 | gene_universe | all C-prefixed nodes (~13,000) | `pipeline/baseline_enrichment.py` |
 
 ## Expected output metrics (benchmark run V5)
@@ -45,7 +45,7 @@
 | Arm | AUROC | AUPRC | Entropy | Nonzero (%) |
 |-----|-------|-------|---------|-------------|
 | Raw | 1.000 | 0.2215 | 5.728 | 100.0 |
-| Conditioned (BIFO) | 1.000 | 0.1923 | 5.222 | 32.8 |
+| Conditioned (BIFO) | 1.000 | 0.1902 | 5.217 | 31.6 |
 | Ablation | 1.000 | 0.2215 | 4.939 | 19.5 |
 | Random sparsification | 1.000 | 0.2173 | 5.590 | 64.6 |
 

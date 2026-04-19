@@ -24,7 +24,7 @@
 #                     build_ncc_edges.sh, merge_files.sh, run_seed_lookup.sh,
 #                     run_conditioning.sh, run_scoring.sh, run_baseline.sh,
 #                     run_resampling.sh
-#   Data files      : ncc_cilia_pathways/ directory, bifo_ddkg_mapping.yaml,
+#   Data files      : ncc_cilia_pathways/ directory, bifo_mapping.yaml,
 #                     kf_{cohort}_seeds.txt, kf_{cohort}_ncc_reference.txt,
 #                     kf_{cohort}_query[2-5].cypher
 # =============================================================================

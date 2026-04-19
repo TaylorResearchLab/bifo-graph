@@ -5,7 +5,7 @@
 # Prerequisites:
 #   - nodes.csv and edges_raw.csv exported from Neo4j (see neo4j_export.cypher)
 #   - seed_nodes.txt and heldout_nodes.txt populated with real CUIs
-#   - bifo_ddkg_mapping.yaml v0.7.1 present
+#   - bifo_mapping.yaml v0.7.1 present
 #   - bifo_conditioning.py and score_pathways.py on PATH or in this directory
 #
 # Usage:
@@ -25,7 +25,7 @@ NODES="${SCRIPT_DIR}/nodes.csv"
 EDGES="${SCRIPT_DIR}/edges_raw.csv"
 MEMBERSHIP_EDGES="${SCRIPT_DIR}/pathway_membership_edges.csv"
 EDGES_MERGED="${OUT_DIR}/edges_merged.csv"
-MAPPING="${SCRIPT_DIR}/bifo_ddkg_mapping.yaml"
+MAPPING="${SCRIPT_DIR}/bifo_mapping.yaml"
 SEEDS="${SCRIPT_DIR}/seed_nodes.txt"
 HELDOUT="${SCRIPT_DIR}/heldout_nodes.txt"
 CHD_REF="${SCRIPT_DIR}/chd_pathway_reference.txt"

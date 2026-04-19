@@ -44,7 +44,7 @@ bifo-graph/
 │   └── build_cilia_ref.sh       Build cilia reference set (one-time setup)
 │
 ├── config/
-│   └── bifo_ddkg_mapping.yaml   BIFO edge admissibility rules (v0.7.1)
+│   └── bifo_mapping.yaml   BIFO edge admissibility rules (v0.7.1)
 │                                251 predicate-to-flow entries, 5 classification tiers
 │
 ├── cypher/                      Neo4j export queries (one file per benchmark/cohort)
@@ -133,7 +133,7 @@ reproduce the primary benchmark results.
 python pipeline/bifo_conditioning.py \
   --nodes data/benchmark/chd_curated_nodes.csv \
   --edges data/benchmark/chd_curated_edges_raw.csv.zip \
-  --mapping config/bifo_ddkg_mapping.yaml \
+  --mapping config/bifo_mapping.yaml \
   --seed-nodes data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
   --out-json results/chd_benchmark/results.json
@@ -206,7 +206,7 @@ bash run_test.sh
 | Methods section | Script / component |
 |-----------------|-------------------|
 | §1 Knowledge graph source | `cypher/` export queries, `pipeline/clean_cypher_output.py` |
-| §2 BIFO conditioning | `pipeline/bifo_conditioning.py`, `config/bifo_ddkg_mapping.yaml` |
+| §2 BIFO conditioning | `pipeline/bifo_conditioning.py`, `config/bifo_mapping.yaml` |
 | §3 Personalized PageRank | `pipeline/bifo_conditioning.py` (PPR loop) |
 | §4 Pathway scoring | `pipeline/score_pathways.py` |
 | §5 Benchmark design | `data/benchmark/`, `BENCHMARK_MANIFEST.md` |
@@ -245,7 +245,7 @@ are in `data/benchmark/`.
 
 ---
 
-## Key configuration: `config/bifo_ddkg_mapping.yaml`
+## Key configuration: `config/bifo_mapping.yaml`
 
 The YAML file encodes the BIFO flow class definitions (v0.7.1):
 - **251** predicate-to-flow class entries

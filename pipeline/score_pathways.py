@@ -642,7 +642,7 @@ def build_null_seed_universe(
 
 
 # Module-level shared state for null permutation workers
-_NULL_SHARED: dict = {}
+_NULL_SHARED = {}
 
 
 def _null_worker_init(shared: dict) -> None:
@@ -852,6 +852,290 @@ def compute_empirical_pvalues(
 
 
 # ---------------------------------------------------------------------------
+# Membership rewiring null model (degree-preserving bipartite edge swap)
+# Optimized: bridge edges pre-indexed as int32 arrays to eliminate pickle
+# overhead when passing to multiprocessing workers.
+# ---------------------------------------------------------------------------
+
+def _extract_bridge_edges_indexed(
+    conditioned_edges: pd.DataFrame,
+    node_to_idx: Dict[str, int],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Extract and pre-index bridge and non-bridge edges as int32 arrays.
+
+    Pre-indexing eliminates string tuple pickle overhead when passing
+    data to multiprocessing workers — the dominant bottleneck for large
+    graphs (600K+ bridge edges).
+
+    Returns
+    -------
+    bridge_src      : int32 array of gene matrix indices
+    bridge_dst      : int32 array of pathway matrix indices
+    non_bridge_rows : int32 array of non-bridge source indices
+    non_bridge_cols : int32 array of non-bridge target indices
+    """
+    prop = conditioned_edges.copy()
+    if 'propagating' in prop.columns:
+        prop = prop[prop['propagating'] == True]
+
+    prop['source'] = prop['source'].astype(str).map(
+        lambda x: removesuffix(x.strip(), ' CUI'))
+    prop['target'] = prop['target'].astype(str).map(
+        lambda x: removesuffix(x.strip(), ' CUI'))
+
+    is_bridge = (prop['bifo_flow'] == 'Pathway Contribution') \
+        if 'bifo_flow' in prop.columns \
+        else pd.Series(False, index=prop.index)
+
+    bridge_df  = prop[is_bridge]
+    non_bridge = prop[~is_bridge]
+
+    # Pre-index bridge edges
+    b_src_str = bridge_df['source'].values
+    b_dst_str = bridge_df['target'].values
+    b_mask = np.array([
+        (s in node_to_idx and t in node_to_idx)
+        for s, t in zip(b_src_str, b_dst_str)
+    ])
+    bridge_src = np.array(
+        [node_to_idx[s] for s, t, m in zip(b_src_str, b_dst_str, b_mask) if m],
+        dtype=np.int32
+    )
+    bridge_dst = np.array(
+        [node_to_idx[t] for s, t, m in zip(b_src_str, b_dst_str, b_mask) if m],
+        dtype=np.int32
+    )
+
+    # Pre-index non-bridge edges
+    nb_mask = (non_bridge['source'].isin(node_to_idx) &
+               non_bridge['target'].isin(node_to_idx))
+    non_bridge = non_bridge[nb_mask]
+    non_bridge_rows = non_bridge['source'].map(node_to_idx).to_numpy(dtype=np.int32)
+    non_bridge_cols = non_bridge['target'].map(node_to_idx).to_numpy(dtype=np.int32)
+
+    log.info(
+        "Bridge edges indexed: %d Pathway Contribution | Non-bridge: %d",
+        len(bridge_src), len(non_bridge_rows)
+    )
+    return bridge_src, bridge_dst, non_bridge_rows, non_bridge_cols
+
+
+def _swap_integer_edges(
+    bridge_src: np.ndarray,
+    bridge_dst: np.ndarray,
+    n_swaps: int,
+    rng: np.random.Generator,
+) -> Tuple[np.ndarray, np.ndarray, dict]:
+    """
+    Degree-preserving edge swap on integer-indexed bridge edges.
+
+    Swaps pathway endpoints (dst) while preserving:
+      - Each pathway's in-degree (member gene count)
+      - Each gene's out-degree (pathway membership count)
+
+    Uses int64 bit-packing for O(1) edge set membership checks:
+        packed = (src << 32) | dst
+
+    Each permutation call receives a fresh copy of the arrays.
+    """
+    src = bridge_src.copy()
+    dst = bridge_dst.copy()
+    n = len(src)
+
+    packed = (src.astype(np.int64) << 32) | dst.astype(np.int64)
+    edge_set = set(packed.tolist())
+
+    completed = 0
+    attempts = 0
+    max_attempts = n_swaps * 20
+
+    while completed < n_swaps and attempts < max_attempts:
+        attempts += 1
+        i = int(rng.integers(n))
+        j = int(rng.integers(n))
+        if i == j:
+            continue
+
+        g1, p1 = int(src[i]), int(dst[i])
+        g2, p2 = int(src[j]), int(dst[j])
+        if p1 == p2:
+            continue
+
+        new1 = (g1 << 32) | p2
+        new2 = (g2 << 32) | p1
+        if new1 in edge_set or new2 in edge_set:
+            continue
+
+        edge_set.discard((g1 << 32) | p1)
+        edge_set.discard((g2 << 32) | p2)
+        edge_set.add(new1)
+        edge_set.add(new2)
+        dst[i] = p2
+        dst[j] = p1
+        completed += 1
+
+    return src, dst, {
+        'requested_swaps': n_swaps,
+        'completed_swaps': completed,
+        'attempts': attempts,
+        'acceptance_rate': completed / max(attempts, 1),
+    }
+
+
+def _rewiring_worker_init(shared: dict) -> None:
+    """Initialize membership rewiring worker."""
+    global _REWIRING_SHARED
+    _REWIRING_SHARED = shared
+
+
+_REWIRING_SHARED = {}
+
+
+def _rewiring_worker_run(perm_seed: int) -> np.ndarray:
+    """
+    Single membership rewiring permutation (integer-indexed, optimized).
+
+    Workers receive only numpy arrays — no string tuples — eliminating
+    pickle serialization overhead for large graphs.
+    """
+    g = _REWIRING_SHARED
+    bridge_src_orig     = g['bridge_src']
+    bridge_dst_orig     = g['bridge_dst']
+    non_bridge_rows     = g['non_bridge_rows']
+    non_bridge_cols     = g['non_bridge_cols']
+    n                   = g['n']
+    alpha               = g['alpha']
+    seed_idx            = g['seed_idx']
+    n_swaps             = g['n_swaps']
+    pathway_indices     = g['pathway_indices']
+    pathway_degrees_arr = g['pathway_degrees_arr']
+
+    rng = np.random.default_rng(perm_seed)
+
+    rewired_src, rewired_dst, _ = _swap_integer_edges(
+        bridge_src_orig, bridge_dst_orig, n_swaps, rng
+    )
+
+    all_rows = np.concatenate([non_bridge_rows, rewired_src])
+    all_cols = np.concatenate([non_bridge_cols, rewired_dst])
+    all_vals = np.ones(len(all_rows), dtype=float)
+
+    A = sp_sparse.csr_matrix(
+        (all_vals, (all_rows, all_cols)), shape=(n, n), dtype=float
+    )
+    row_sums = np.asarray(A.sum(axis=1)).flatten()
+    with np.errstate(divide='ignore', invalid='ignore'):
+        inv = np.where(row_sums > 0, 1.0 / row_sums, 0.0)
+    A_tilde_T = (sp_sparse.diags(inv) @ A).T.tocsr()
+
+    f = _personalized_pagerank(A_tilde_T, seed_idx, n, alpha=alpha)
+
+    # Vectorized degree_norm computation
+    pw_scores = f[pathway_indices]
+    degs = pathway_degrees_arr.astype(float)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        null_scores = np.where(degs > 0, pw_scores / np.sqrt(degs), pw_scores)
+
+    return null_scores
+
+
+def run_membership_rewiring_null(
+    conditioned_edges: pd.DataFrame,
+    node_to_idx: Dict[str, int],
+    pathway_ids: List[str],
+    pathway_degrees: Dict[str, int],
+    seed_node_ids: List[str],
+    n_permutations: int = 1000,
+    alpha: float = 0.5,
+    n_cores: int = 1,
+    random_seed: int = 42,
+    n_swaps_multiplier: int = 10,
+) -> np.ndarray:
+    """
+    Run N membership rewiring permutations (optimized integer-indexed version).
+
+    For each permutation:
+      1. Apply degree-preserving edge swaps to Pathway Contribution bridge edges
+         starting fresh from the original integer-indexed edge arrays
+      2. Rebuild PPR operator (non-bridge edges held fixed)
+      3. Rerun PPR with real seeds (unchanged)
+      4. Compute degree_norm for all scored pathways
+
+    This null tests: does this pathway's actual gene membership receive more
+    propagated mass than expected under a randomized membership structure with
+    the same degree constraints?
+
+    Valid at all seed sizes because seeds are never randomized.
+    Optimized: bridge edges pre-indexed as int32 arrays to minimize pickle
+    overhead in multiprocessing (dominant bottleneck for large graphs).
+    """
+    log.info("Extracting and pre-indexing bridge edges for rewiring null...")
+    bridge_src, bridge_dst, non_bridge_rows, non_bridge_cols = \
+        _extract_bridge_edges_indexed(conditioned_edges, node_to_idx)
+
+    if len(bridge_src) == 0:
+        log.error("No Pathway Contribution bridge edges found")
+        return np.zeros((len(pathway_ids), n_permutations), dtype=float)
+
+    n_swaps = len(bridge_src) * n_swaps_multiplier
+    n = len(node_to_idx)
+    log.info("Rewiring null: %d bridge edges, %d swaps/perm, %d perms",
+             len(bridge_src), n_swaps, n_permutations)
+
+    pathway_indices = np.array(
+        [node_to_idx.get(pid, 0) for pid in pathway_ids], dtype=np.int32
+    )
+    pathway_degrees_arr = np.array(
+        [pathway_degrees.get(pid, 0) for pid in pathway_ids], dtype=np.int32
+    )
+
+    effective_seeds = [s for s in seed_node_ids if s in node_to_idx]
+    if not effective_seeds:
+        log.error("No seed nodes in graph — cannot run rewiring null")
+        return np.zeros((len(pathway_ids), n_permutations), dtype=float)
+    if len(effective_seeds) < len(seed_node_ids):
+        log.warning("Rewiring null: %d effective seeds (%d absent from graph)",
+                    len(effective_seeds), len(seed_node_ids) - len(effective_seeds))
+
+    shared = {
+        'bridge_src':           bridge_src,
+        'bridge_dst':           bridge_dst,
+        'non_bridge_rows':      non_bridge_rows,
+        'non_bridge_cols':      non_bridge_cols,
+        'n':                    n,
+        'alpha':                alpha,
+        'seed_idx':             [node_to_idx[s] for s in effective_seeds],
+        'n_swaps':              n_swaps,
+        'pathway_indices':      pathway_indices,
+        'pathway_degrees_arr':  pathway_degrees_arr,
+    }
+
+    rng = np.random.default_rng(random_seed)
+    perm_seeds = rng.integers(0, 2**31, size=n_permutations).tolist()
+    cores = min(n_cores, n_permutations) if n_cores > 1 else 1
+
+    if cores > 1:
+        log.info("Running %d rewiring permutations across %d cores...",
+                 n_permutations, cores)
+        with mp.Pool(
+            processes=cores,
+            initializer=_rewiring_worker_init,
+            initargs=(shared,)
+        ) as pool:
+            columns = pool.map(_rewiring_worker_run, perm_seeds)
+    else:
+        log.info("Running %d rewiring permutations (single core)...", n_permutations)
+        _rewiring_worker_init(shared)
+        columns = [_rewiring_worker_run(ps) for ps in perm_seeds]
+
+    null_matrix = np.column_stack(columns)
+    log.info("Membership rewiring null complete: matrix shape %s", null_matrix.shape)
+    return null_matrix
+
+
+
+# ---------------------------------------------------------------------------
 # Scoring engine
 # ---------------------------------------------------------------------------
 
@@ -1014,8 +1298,10 @@ def score_pathways(
     excluded_name_patterns: Optional[List[str]] = None,
     n_cores: int = 1,
     n_permutations: int = 0,
+    null_type: str = 'membership-rewiring',
     ppr_alpha: float = 0.5,
     random_seed: int = 42,
+    n_swaps_multiplier: int = 10,
 ) -> Tuple[List[PathwayScore], Dict[str, float]]:
     """
     Score all pathway nodes and return (ranked_scores, metrics).
@@ -1087,7 +1373,7 @@ def score_pathways(
 
     # Empirical null model
     if n_permutations > 0 and scored:
-        log.info("Running empirical null model (%d permutations)...", n_permutations)
+        log.info("Running %s null model (%d permutations)...", null_type, n_permutations)
 
         pathway_ids_ordered = [p.concept_id for p in scored]
         pathway_degrees_map = {p.concept_id: p.degree for p in scored}
@@ -1115,18 +1401,32 @@ def score_pathways(
                 )
 
         if n_effective_seeds > 0:
-            null_matrix = run_empirical_null(
-            conditioned_edges=conditioned_edges,
-            node_to_idx=node_to_idx,
-            pathway_ids=pathway_ids_ordered,
-            pathway_degrees=pathway_degrees_map,
-            membership_map=membership_map_scored,  # scored pathways only
+            if null_type == 'membership-rewiring':
+                null_matrix = run_membership_rewiring_null(
+                    conditioned_edges=conditioned_edges,
+                    node_to_idx=node_to_idx,
+                    pathway_ids=pathway_ids_ordered,
+                    pathway_degrees=pathway_degrees_map,
+                    seed_node_ids=seed_node_ids,
+                    n_permutations=n_permutations,
+                    alpha=ppr_alpha,
+                    n_cores=n_cores,
+                    random_seed=random_seed,
+                    n_swaps_multiplier=n_swaps_multiplier,
+                )
+            else:  # seed-permutation
+                null_matrix = run_empirical_null(
+                conditioned_edges=conditioned_edges,
+                node_to_idx=node_to_idx,
+                pathway_ids=pathway_ids_ordered,
+                pathway_degrees=pathway_degrees_map,
+                membership_map=membership_map_scored,  # scored pathways only
             n_seeds=n_effective_seeds,
             n_permutations=n_permutations,
             alpha=ppr_alpha,
             n_cores=n_cores,
-                random_seed=random_seed,
-            )
+                    random_seed=random_seed,
+                )
 
             pval_results = compute_empirical_pvalues(observed_scores, null_matrix)
 
@@ -1248,8 +1548,19 @@ Examples:
                              "observed scoring and null permutations.")
     parser.add_argument("--n-permutations",    type=int, default=0,
                         help="Number of null permutation runs for empirical p-values "
-                             "(default: 0 = disabled). Recommended: 1000. "
-                             "Null seeds drawn from eligible pathway-connected genes.")
+                             "(default: 0 = disabled). Recommended: 1000.")
+    parser.add_argument("--null-type",          default="membership-rewiring",
+                        choices=["membership-rewiring", "seed-permutation"],
+                        help="Null model type (default: membership-rewiring). "
+                             "membership-rewiring: keeps seeds fixed, rewires pathway "
+                             "membership edges via degree-preserving swaps. Valid at "
+                             "all seed sizes. "
+                             "seed-permutation: draws random seed sets from eligible "
+                             "pathway-connected genes. Valid only for sparse seed sets "
+                             "(seed-to-universe ratio < ~5%%).")
+    parser.add_argument("--n-swaps-multiplier", type=int, default=10,
+                        help="Swaps per permutation = n_bridge_edges * multiplier "
+                             "(default: 10). Higher values = more mixing.")
     parser.add_argument("--ppr-alpha",         type=float, default=0.5,
                         help="PPR restart probability for null runs (default: 0.5). "
                              "Should match the alpha used in bifo_conditioning.py.")
@@ -1305,8 +1616,10 @@ Examples:
         max_members=args.max_members,
         n_cores=n_cores,
         n_permutations=args.n_permutations,
+        null_type=args.null_type,
         ppr_alpha=args.ppr_alpha,
         random_seed=args.perm_random_seed,
+        n_swaps_multiplier=args.n_swaps_multiplier,
     )
 
     if not scored:
@@ -1326,6 +1639,7 @@ Examples:
             "n_seeds_effective":  metrics.get('n_effective_seeds', len(seed_ids)),
             "n_chd_reference":    len(chd_set),
             "n_permutations":     args.n_permutations,
+            "null_type":          args.null_type,
             "ppr_alpha":          args.ppr_alpha,
             "random_seed":        args.perm_random_seed,
         },

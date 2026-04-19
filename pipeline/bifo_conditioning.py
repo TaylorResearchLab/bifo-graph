@@ -740,6 +740,10 @@ def build_sparse_operator(
 
     rows = work["source"].map(lambda x: node_to_idx.get(clean_node_id(str(x)))).to_numpy()
     cols = work["target"].map(lambda x: node_to_idx.get(clean_node_id(str(x)))).to_numpy()
+    # NOTE: All analyses reported in the manuscript use uniform edge weights.
+    # DDKG exports do not carry confidence or evidence_type fields; edge_weights()
+    # returns 0.5 for all edges in this case, which after row normalization
+    # produces identical results to unit weights.
     vals = edge_weights(work)
     return (
         sparse.csr_matrix((vals, (rows, cols)), shape=(n, n), dtype=float),

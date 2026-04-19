@@ -56,3 +56,27 @@
 | BIFO P@10 | 0.445 | 0.123 | 0.100 | 0.500 | 0.700 |
 | Rank improvement | +93.0 | 16.8 | +28.4 | +93.5 | +139.1 |
 | Splits with positive rank improvement | 3003/3003 (100%) | — | — | — | — |
+
+## Empirical Null Model (Membership Rewiring)
+
+| Parameter | Value |
+|-----------|-------|
+| null_type | membership-rewiring |
+| n_permutations | 1000 |
+| n_swaps_multiplier | 10 |
+| ppr_alpha | 0.5 |
+| random_seed | 42 |
+| min_members | 8 |
+| max_members | 300 |
+
+### Benchmark Results (CHD curated, N=1000 permutations)
+
+| Metric | Value |
+|--------|-------|
+| Pathways tested | 550 |
+| Significant (q<0.05) | 49 |
+| Significant (q<0.10) | 55 |
+| BRUNEAU q-value | 0.017 |
+| BRUNEAU null_z | 23.4 |
+| WP_HEART_DEVELOPMENT q | 0.017 |
+| WP_HEART_DEVELOPMENT null_z | 20.4 |

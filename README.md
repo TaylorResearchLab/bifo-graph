@@ -85,6 +85,7 @@ bifo-graph/
 │           ├── kf_nbl_seeds_maf001_n3.txt  Carrier-filtered seeds (n≥3; 147 genes)
 │           ├── kf_nbl_seeds_maf01.txt      MAF≤0.01 seeds (broader filter)
 │           ├── kf_nbl_seeds.txt            Original unfiltered seed list
+│           ├── kf_nbl_seed_cuis.txt        CUI-resolved seed list (pipeline input)
 │           └── kf_nbl_ncc_reference.txt    NCC cilia pathway reference set
 │
 ├── examples/
@@ -96,18 +97,102 @@ bifo-graph/
 │       └── run_test.sh          One-command test run script
 │
 ├── BENCHMARK_MANIFEST.md        Frozen parameter registry and expected output metrics
+├── REPRODUCE.md                 Exact commands to reproduce all manuscript results
+├── requirements.txt             Python dependencies
+│
+├── data/
+│   ├── benchmark/               (existing — see above)
+│   ├── ncc_cilia_pathways/      NCC and cilia gene set files (19 curated sets)
+│   └── cohorts/
+│       ├── kf_cilia_reference_msigdb.txt  Cross-cohort cilia pathway reference
+│       ├── README.md            Cohort data documentation
+│       ├── chd/                 (existing — see above)
+│       └── nbl/
+│           ├── kf_nbl_seeds_maf001.txt     Primary seeds (MAF≤0.001, n≥1; 1,406 genes)
+│           ├── kf_nbl_seeds_maf001_n2.txt  Carrier-filtered seeds (n≥2; 401 genes)
+│           ├── kf_nbl_seeds_maf001_n3.txt  Carrier-filtered seeds (n≥3; 147 genes)
+│           ├── kf_nbl_seeds_maf01.txt      MAF≤0.01 seeds (broader filter)
+│           ├── kf_nbl_seeds.txt            Original unfiltered seed list
+│           ├── kf_nbl_seed_cuis.txt        CUI-resolved seed list (pipeline input)
+│           └── kf_nbl_ncc_reference.txt    NCC cilia pathway reference set
 │
 └── results/                     Pre-computed results (shipped with repo)
     ├── chd_benchmark/
-    │   └── chd_resampling_summary.json   Exhaustive 3,003-split resampling summary
-    └── kf_chd/
-        ├── results.json                  Four-arm PPR metrics (gene-level recovery)
-        ├── results_node_index.json       Node CUI → index mapping
-        ├── results_kept_edges.csv.zip    BIFO-conditioned kept edges
-        ├── results_scores_cond.npy       Conditioned PPR score vector
-        ├── results_scores_raw.npy        Raw PPR score vector
-        ├── results_scores_meta.npy       Metadata-filtered PPR score vector
-        └── results_scores_rand.npy       Random sparsification score vector
+    │   ├── results_full.json               Full-arm PPR results (gene-level metrics)
+    │   ├── results_full_scores_cond.npy    Full-arm conditioned PPR scores
+    │   ├── results_full_scores_raw.npy     Full-arm raw PPR scores
+    │   ├── results_full_kept_edges.csv.zip Full-arm kept edges
+    │   ├── results_ablation.json           Ablation-arm PPR results
+    │   ├── results_ablation_scores_cond.npy
+    │   ├── results_ablation_scores_raw.npy
+    │   ├── results_ablation_kept_edges.csv.zip
+    │   ├── results_mech.json               Mechanistic-arm PPR results
+    │   ├── results_mech_scores_cond.npy
+    │   ├── results_mech_scores_raw.npy
+    │   ├── results_mech_kept_edges.csv.zip
+    │   ├── results_node_index.json         Node CUI → index mapping
+    │   ├── pathway_metrics_full.json       Full-arm pathway scoring metrics
+    │   ├── pathway_metrics_ablation.json   Ablation-arm pathway scoring metrics
+    │   ├── pathway_metrics_mech.json       Mechanistic-arm pathway scoring metrics
+    │   ├── baseline_comparison.csv         Baseline enrichment comparison
+    │   ├── baseline_comparison.json
+    │   ├── resampling_summary.json         Exhaustive 3,003-split resampling summary
+    │   ├── resampling_results.csv          Per-split resampling results
+    │   ├── test_structural_null.csv        Benchmark null model scores (both nulls)
+    │   ├── c4_notch/                       C4/Notch pathway-split control results
+    │   │   ├── pathway_metrics.json
+    │   │   ├── baseline_comparison.json
+    │   │   ├── results.json
+    │   │   ├── results_kept_edges.csv.zip
+    │   │   ├── results_node_index.json
+    │   │   ├── results_scores_cond.npy
+    │   │   └── results_scores_raw.npy
+    │   └── c4_mapk/                        C4/MAPK pathway-split control results
+    │       ├── pathway_metrics.json
+    │       ├── baseline_comparison.json
+    │       ├── results.json
+    │       ├── results_kept_edges.csv.zip
+    │       ├── results_node_index.json
+    │       ├── results_scores_cond.npy
+    │       └── results_scores_raw.npy
+    ├── kf_chd/
+    │   ├── results.json                    PPR propagation results
+    │   ├── results_node_index.json         Node CUI → index mapping
+    │   ├── results_kept_edges.csv.zip      BIFO-conditioned kept edges
+    │   ├── results_scores_cond.npy         Conditioned PPR score vector
+    │   ├── results_scores_raw.npy          Raw PPR score vector
+    │   ├── results_scores_meta.npy         Metadata-filtered PPR score vector
+    │   ├── results_scores_rand.npy         Random sparsification score vector
+    │   ├── nodes_clean_noncc.csv.gz        Node table (pipeline input)
+    │   ├── edges_all_noncc.csv.gz          Edge table (pipeline input)
+    │   ├── pathway_scores_standard.csv     Pathway scores (full universe)
+    │   ├── pathway_scores_ncc.csv          Pathway scores (NCC/cilia universe)
+    │   ├── pathway_scores_null.csv         Pathway scores with empirical null results
+    │   ├── pathway_metrics_standard.json   Pathway scoring metrics
+    │   ├── pathway_metrics_ncc.json        NCC/cilia scoring metrics
+    │   ├── baseline_comparison.csv         Baseline enrichment comparison
+    │   ├── baseline_comparison.json
+    │   ├── resampling_summary.json         Bootstrap resampling summary
+    │   └── resampling_results.csv          Per-bootstrap resampling results
+    └── kf_nbl/
+        ├── results.json                    PPR propagation results
+        ├── results_node_index.json         Node CUI → index mapping
+        ├── results_kept_edges.csv.zip      BIFO-conditioned kept edges
+        ├── results_scores_cond.npy         Conditioned PPR score vector
+        ├── results_scores_raw.npy          Raw PPR score vector
+        ├── results_scores_meta.npy         Metadata-filtered PPR score vector
+        ├── results_scores_rand.npy         Random sparsification score vector
+        ├── nodes_clean_noncc.csv.gz        Node table (pipeline input)
+        ├── edges_all_noncc.csv.gz          Edge table (pipeline input)
+        ├── pathway_scores_standard.csv     Pathway scores (full universe)
+        ├── pathway_scores_ncc.csv          Pathway scores (NCC/cilia universe)
+        ├── pathway_scores_null.csv         Pathway scores with empirical null results
+        ├── pathway_metrics_standard.json   Pathway scoring metrics
+        ├── pathway_metrics_ncc.json        NCC/cilia scoring metrics
+        ├── baseline_comparison.csv         Baseline enrichment comparison
+        ├── baseline_comparison.json
+        ├── resampling_summary.json         Bootstrap resampling summary
+        └── resampling_results.csv          Per-bootstrap resampling results
 ```
 
 ---
@@ -350,9 +435,11 @@ Figure source scripts are available in the companion figure repository
 **Shipped with this repository:**
 - Curated CHD benchmark graph (edges and pathway memberships)
 - C4 pathway-split control seeds and references
-- KF-CHD and KF-NBL variant gene seed lists
-- Pre-computed KF-CHD conditioning results and score vectors
-- Exhaustive CHD resampling summary (3,003 splits)
+- KF-CHD and KF-NBL variant gene seed lists (including CUI-resolved seed files)
+- Pre-computed KF-CHD and KF-NBL conditioning results, score vectors, pathway scores, and null model results
+- Exhaustive CHD resampling summary (3,003 splits) and KF cohort bootstrap resampling summaries
+- Benchmark and cohort null model scored outputs (`test_structural_null.csv`, `pathway_scores_null.csv`)
+- NCC and cilia curated gene set files (`data/ncc_cilia_pathways/`)
 
 **Requires DDKG access (not shipped):**
 - Full KF-CHD and KF-NBL graph exports (815K–880K nodes, 5–6M edges)

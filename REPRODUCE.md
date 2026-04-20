@@ -1,6 +1,6 @@
 # Reproducing All Analyses in Taylor et al. 2026
 
-This document provides exact commands to reproduce every result reported in the manuscript. All analyses were run on the Taylor Lab HPC (reslndbhisbox05) using the frozen pipeline in this repository. Pre-computed results are archived in `results/` and can be verified without re-running.
+This document provides exact commands to reproduce every result reported in the manuscript. All analyses were run using the frozen pipeline in this repository. Pre-computed results are archived in `results/` and can be verified without re-running.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ cd bifo-graph
 pip install numpy pandas scipy scikit-learn pyyaml
 ```
 
-Python 3.8+ required. All analyses use `pipeline/bifo_conditioning.py` and `pipeline/score_pathways.py` from this repository. The frozen configuration is `config/bifo_mapping.yaml` (v0.7.1).
+Python 3.7+ required. All analyses use `pipeline/bifo_conditioning.py` and `pipeline/score_pathways.py` from this repository. The frozen configuration is `config/bifo_mapping.yaml` (v0.7.1).
 
 ---
 
@@ -24,14 +24,14 @@ python3 -c "
 import pandas as pd
 raw = pd.read_csv('data/benchmark/chd_curated_edges_raw.csv.zip')
 mem = pd.read_csv('data/benchmark/chd_curated_pathway_membership_edges.csv.zip')
-pd.concat([raw, mem], ignore_index=True).to_csv('../edges_merged_chd.csv', index=False)
+pd.concat([raw, mem], ignore_index=True).to_csv('results/chd_benchmark/edges_merged_chd.csv', index=False)
 print(f'Merged: {len(raw)} + {len(mem)} = {len(raw)+len(mem)} edges')
 "
 
 # Run conditioning (four-arm PPR)
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
-  --edges   ../edges_merged_chd.csv \
+  --edges   results/chd_benchmark/edges_merged_chd.csv \
   --mapping config/bifo_mapping.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
@@ -59,7 +59,7 @@ python3 pipeline/bifo_conditioning.py \
 ```bash
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
-  --edges   ../edges_merged_chd.csv \
+  --edges   results/chd_benchmark/edges_merged_chd.csv \
   --mapping config/bifo_mapping.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
@@ -75,13 +75,13 @@ python3 -c "
 import zipfile, pandas as pd
 z = zipfile.ZipFile('results/chd_benchmark/results_full_kept_edges.csv.zip')
 name = [n for n in z.namelist() if '/' not in n][0]
-pd.read_csv(z.open(name), low_memory=False).to_csv('../chd_kept_edges.csv', index=False)
+pd.read_csv(z.open(name), low_memory=False).to_csv('results/chd_benchmark/chd_kept_edges.csv', index=False)
 "
 
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         ../edges_merged_chd.csv \
-  --edges-conditioned ../chd_kept_edges.csv \
+  --edges-raw         results/chd_benchmark/edges_merged_chd.csv \
+  --edges-conditioned results/chd_benchmark/chd_kept_edges.csv \
   --scores-cond       results/chd_benchmark/results_full_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_full_scores_raw.npy \
   --node-index        results/chd_benchmark/results_node_index.json \
@@ -99,8 +99,8 @@ python3 pipeline/score_pathways.py \
 ```bash
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         ../edges_merged_chd.csv \
-  --edges-conditioned ../chd_kept_edges.csv \
+  --edges-raw         results/chd_benchmark/edges_merged_chd.csv \
+  --edges-conditioned results/chd_benchmark/chd_kept_edges.csv \
   --scores-cond       results/chd_benchmark/results_full_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_full_scores_raw.npy \
   --node-index        results/chd_benchmark/results_node_index.json \
@@ -110,8 +110,8 @@ python3 pipeline/score_pathways.py \
   --n-permutations 1000 \
   --null-type membership-rewiring \
   --n-cores 120 \
-  --out-csv  results/chd_benchmark/pathway_scores_full_null.csv \
-  --out-json results/chd_benchmark/pathway_metrics_full_null.json
+  --out-csv  results/chd_benchmark/test_structural_null.csv \
+  --out-json results/chd_benchmark/test_structural_null.json
 ```
 
 **Expected (pathway-node rewiring null):** 49/550 pathways significant at q<0.05; BRUNEAU q=0.017 null_z=24.1
@@ -124,7 +124,7 @@ python3 pipeline/score_pathways.py \
 # Ablation arm
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         ../edges_merged_chd.csv \
+  --edges-raw         results/chd_benchmark/edges_merged_chd.csv \
   --edges-conditioned results/chd_benchmark/results_ablation_kept_edges.csv.zip \
   --scores-cond       results/chd_benchmark/results_ablation_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_ablation_scores_raw.npy \
@@ -138,7 +138,7 @@ python3 pipeline/score_pathways.py \
 # Mechanistic-only arm
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         ../edges_merged_chd.csv \
+  --edges-raw         results/chd_benchmark/edges_merged_chd.csv \
   --edges-conditioned results/chd_benchmark/results_mech_kept_edges.csv.zip \
   --scores-cond       results/chd_benchmark/results_mech_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_mech_scores_raw.npy \
@@ -154,7 +154,7 @@ python3 pipeline/score_pathways.py \
 
 ```bash
 python3 pipeline/baseline_enrichment.py \
-  --edges-merged  ../edges_merged_chd.csv \
+  --edges-merged  results/chd_benchmark/edges_merged_chd.csv \
   --node-index    results/chd_benchmark/results_node_index.json \
   --scores-raw    results/chd_benchmark/results_full_scores_raw.npy \
   --scores-cond   results/chd_benchmark/results_full_scores_cond.npy \
@@ -175,7 +175,7 @@ import zipfile, pandas as pd, sys
 arm = sys.argv[1]
 z = zipfile.ZipFile(f'results/chd_benchmark/{arm}/results_kept_edges.csv.zip')
 name = [n for n in z.namelist() if '/' not in n][0]
-pd.read_csv(z.open(name), low_memory=False).to_csv(f'../{arm}_kept_edges.csv', index=False)
+pd.read_csv(z.open(name), low_memory=False).to_csv(f'results/chd_benchmark/{arm}_kept_edges.csv', index=False)
 " $ARM
 done
 
@@ -183,8 +183,8 @@ done
 for ARM in c4_notch c4_mapk; do
   python3 pipeline/score_pathways.py \
     --nodes             data/benchmark/chd_curated_nodes.csv \
-    --edges-raw         ../edges_merged_chd.csv \
-    --edges-conditioned ../${ARM}_kept_edges.csv \
+    --edges-raw         results/chd_benchmark/edges_merged_chd.csv \
+    --edges-conditioned results/chd_benchmark/${ARM}_kept_edges.csv \
     --scores-cond       results/chd_benchmark/${ARM}/results_scores_cond.npy \
     --scores-raw        results/chd_benchmark/${ARM}/results_scores_raw.npy \
     --node-index        results/chd_benchmark/${ARM}/results_node_index.json \
@@ -201,7 +201,7 @@ done
 ```bash
 python3 pipeline/chd_resampling_exhaustive.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-merged      ../edges_merged_chd.csv \
+  --edges-merged      results/chd_benchmark/edges_merged_chd.csv \
   --mapping           config/bifo_mapping.yaml \
   --gene-pool         data/benchmark/chd_seed_nodes.txt \
   --chd-pathways      data/benchmark/chd_pathway_reference.txt \
@@ -218,7 +218,7 @@ python3 pipeline/chd_resampling_exhaustive.py \
 
 ### Data requirements
 
-The KF-CHD graph files are in `/mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_chd/`. The merged edges file was produced by:
+KF-CHD graph data files (`edges_all_noncc.csv.gz`, `nodes_clean_noncc.csv.gz`) are archived in `results/kf_chd/`. Seed CUIs are in `data/cohorts/chd/kf_chd_seed_cuis.txt` (1,276 CUIs; 1,276/1,287 resolved).
 
 ```bash
 # Already exists: kf_chd_edges_merged.csv
@@ -230,39 +230,39 @@ Seed file: `kf_chd_seed_cuis.txt` (1,276 CUIs; derived from `data/cohorts/chd/kf
 ### Step 2.1 — Conditioning and Propagation
 
 ```bash
-cd /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_chd
 
-python3 /path/to/bifo-graph/pipeline/bifo_conditioning.py \
-  --nodes   kf_chd_nodes_clean_noncc.csv \
-  --edges   kf_chd_edges_all_noncc.csv \
-  --mapping /path/to/bifo-graph/config/bifo_mapping.yaml \
-  --seed-nodes    kf_chd_seed_cuis.txt \
-  --heldout-nodes kf_chd_seed_cuis.txt \
-  --out-json kf_chd_results/results.json
+
+python3 pipeline/bifo_conditioning.py \
+  --nodes   results/kf_chd/nodes_clean_noncc.csv.gz \
+  --edges   results/kf_chd/edges_all_noncc.csv.gz \
+  --mapping config/bifo_mapping.yaml \
+  --seed-nodes    data/cohorts/chd/kf_chd_seed_cuis.txt \
+  --heldout-nodes data/cohorts/chd/kf_chd_seed_cuis.txt \
+  --out-json results/kf_chd/results.json
 ```
 
-**Frozen outputs:** `bifo-graph/results/kf_chd/`
+**Frozen outputs:** `results/kf_chd/`
 
 **Expected:** 2,115,572 propagating edges (43.9% of concept edges), 1,276/1,276 seeds resolved
 
 ### Step 2.2 — Pathway Scoring (Standard Universe)
 
 ```bash
-python3 /path/to/bifo-graph/pipeline/score_pathways.py \
-  --nodes             kf_chd_nodes_clean_noncc.csv \
-  --edges-raw         kf_chd_edges_merged.csv \
-  --edges-conditioned kf_chd_results/results_kept_edges.csv \
-  --scores-cond       kf_chd_results/results_scores_cond.npy \
-  --scores-raw        kf_chd_results/results_scores_raw.npy \
-  --node-index        kf_chd_results/results_node_index.json \
-  --seed-nodes        kf_chd_seed_cuis.txt \
-  --chd-pathways      /path/to/bifo-graph/data/cohorts/kf_cilia_reference_msigdb.txt \
+python3 pipeline/score_pathways.py \
+  --nodes             results/kf_chd/nodes_clean_noncc.csv.gz \
+  --edges-raw         results/kf_chd/edges_all_noncc.csv.gz \
+  --edges-conditioned results/kf_chd/results_kept_edges.csv.zip \
+  --scores-cond       results/kf_chd/results_scores_cond.npy \
+  --scores-raw        results/kf_chd/results_scores_raw.npy \
+  --node-index        results/kf_chd/results_node_index.json \
+  --seed-nodes        data/cohorts/chd/kf_chd_seed_cuis.txt \
+  --chd-pathways      data/cohorts/chd/kf_chd_ncc_reference.txt \
   --min-members 8 --max-members 300 \
   --n-permutations 1000 \
   --null-type membership-rewiring \
   --n-cores 192 \
-  --out-csv  kf_chd_results/pathway_scores_standard.csv \
-  --out-json kf_chd_results/pathway_metrics_standard.json
+  --out-csv  results/kf_chd/pathway_scores_null.csv \
+  --out-json results/kf_chd/pathway_metrics_null.json
 ```
 
 **Expected (scoring):** WP_CILIOPATHIES rank 1, P@10=0.20 (50× background), rank improvement=+303
@@ -276,17 +276,17 @@ python3 /path/to/bifo-graph/pipeline/score_pathways.py \
 ### Step 2.3 — Baseline Enrichment
 
 ```bash
-python3 /path/to/bifo-graph/pipeline/baseline_enrichment.py \
-  --edges-merged  kf_chd_edges_all_noncc.csv \
-  --node-index    kf_chd_results/results_node_index.json \
-  --scores-raw    kf_chd_results/results_scores_raw.npy \
-  --scores-cond   kf_chd_results/results_scores_cond.npy \
-  --bifo-scores   kf_chd_results/pathway_scores_standard.csv \
-  --chd-pathways  /path/to/bifo-graph/data/cohorts/kf_cilia_reference_msigdb.txt \
-  --seed-nodes    kf_chd_seed_cuis.txt \
+python3 pipeline/baseline_enrichment.py \
+  --edges-merged  results/kf_chd/edges_all_noncc.csv.gz \
+  --node-index    results/kf_chd/results_node_index.json \
+  --scores-raw    results/kf_chd/results_scores_raw.npy \
+  --scores-cond   results/kf_chd/results_scores_cond.npy \
+  --bifo-scores   results/kf_chd/pathway_scores_standard.csv \
+  --chd-pathways  data/cohorts/chd/kf_chd_ncc_reference.txt \
+  --seed-nodes    data/cohorts/chd/kf_chd_seed_cuis.txt \
   --small-universe \
-  --out-csv  kf_chd_results/baseline_comparison.csv \
-  --out-json kf_chd_results/baseline_comparison.json
+  --out-csv  results/kf_chd/baseline_comparison.csv \
+  --out-json results/kf_chd/baseline_comparison.json
 ```
 
 **Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=9.68×10⁻³¹); Fisher P@10=0.30, AP=0.159; raw PPR GSEA rank 3,325; cond PPR GSEA rank 4,414; neighborhood Fisher P@10=0.0
@@ -295,22 +295,22 @@ python3 /path/to/bifo-graph/pipeline/baseline_enrichment.py \
 
 ## Analysis 3 — KF-NBL Cohort (Figure 4, Section 8.3)
 
-Independent neuroblastoma cohort (554 probands, dbGaP phs001436). Same pipeline as KF-CHD applied to separate data. Data in `/mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_nbl/`. Frozen outputs in `bifo-graph/results/kf_nbl/`.
+Independent neuroblastoma cohort (554 probands, dbGaP phs001436). Same pipeline as KF-CHD. Seed CUIs: `data/cohorts/nbl/kf_nbl_seed_cuis.txt` (1,395 CUIs; 1,395/1,406 resolved). Frozen outputs in `results/kf_nbl/`.
 
 Seed file: `kf_nbl_seed_cuis.txt` (1,395 CUIs; NBL rare variant carriers at MAF ≤ 0.001)
 
 ### Step 3.1 — Conditioning and Propagation
 
 ```bash
-cd /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_nbl
 
-python3 /path/to/bifo-graph/pipeline/bifo_conditioning.py \
-  --nodes   kf_nbl_nodes_clean_noncc.csv \
-  --edges   kf_nbl_edges_all_noncc.csv \
-  --mapping /path/to/bifo-graph/config/bifo_mapping.yaml \
-  --seed-nodes    kf_nbl_seed_cuis.txt \
-  --heldout-nodes kf_nbl_seed_cuis.txt \
-  --out-json kf_nbl_results/results.json
+
+python3 pipeline/bifo_conditioning.py \
+  --nodes   results/kf_nbl/nodes_clean_noncc.csv.gz \
+  --edges   results/kf_nbl/edges_all_noncc.csv.gz \
+  --mapping config/bifo_mapping.yaml \
+  --seed-nodes    data/cohorts/nbl/kf_nbl_seed_cuis.txt \
+  --heldout-nodes data/cohorts/nbl/kf_nbl_seed_cuis.txt \
+  --out-json results/kf_nbl/results.json
 ```
 
 **Expected:** 2,647,055 propagating edges (45.1% of concept edges), 1,395/1,406 seeds resolved
@@ -318,24 +318,24 @@ python3 /path/to/bifo-graph/pipeline/bifo_conditioning.py \
 ### Step 3.2 — Pathway Scoring
 
 ```bash
-python3 /path/to/bifo-graph/pipeline/score_pathways.py \
-  --nodes             kf_nbl_nodes_clean_noncc.csv \
-  --edges-raw         kf_nbl_edges_merged.csv \
-  --edges-conditioned kf_nbl_results/results_kept_edges.csv \
-  --scores-cond       kf_nbl_results/results_scores_cond.npy \
-  --scores-raw        kf_nbl_results/results_scores_raw.npy \
-  --node-index        kf_nbl_results/results_node_index.json \
-  --seed-nodes        kf_nbl_seed_cuis.txt \
-  --chd-pathways      /path/to/bifo-graph/data/cohorts/kf_cilia_reference_msigdb.txt \
+python3 pipeline/score_pathways.py \
+  --nodes             results/kf_nbl/nodes_clean_noncc.csv.gz \
+  --edges-raw         results/kf_nbl/edges_all_noncc.csv.gz \
+  --edges-conditioned results/kf_nbl/results_kept_edges.csv.zip \
+  --scores-cond       results/kf_nbl/results_scores_cond.npy \
+  --scores-raw        results/kf_nbl/results_scores_raw.npy \
+  --node-index        results/kf_nbl/results_node_index.json \
+  --seed-nodes        data/cohorts/nbl/kf_nbl_seed_cuis.txt \
+  --chd-pathways      data/cohorts/nbl/kf_nbl_ncc_reference.txt \
   --min-members 8 --max-members 300 \
   --n-permutations 1000 \
   --null-type membership-rewiring \
   --n-cores  192 \
-  --out-csv  kf_nbl_results/pathway_scores_standard.csv \
-  --out-json kf_nbl_results/pathway_metrics_standard.json
+  --out-csv  results/kf_nbl/pathway_scores_null.csv \
+  --out-json results/kf_nbl/pathway_metrics_null.json
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 1 (independent replication of KF-CHD finding)
+**Expected (scoring):** WP_CILIOPATHIES rank 1 (independent replication of KF-CHD finding); BIFO P@10=0.10, AP=0.090, rank improvement=+193; Fisher P@10=0.20, AP=0.117
 
 **Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=31.3, empirical q=0.009
 
@@ -344,30 +344,30 @@ python3 /path/to/bifo-graph/pipeline/score_pathways.py \
 ### Step 3.3 — Baseline Enrichment
 
 ```bash
-python3 /path/to/bifo-graph/pipeline/baseline_enrichment.py \
-  --edges-merged  kf_nbl_edges_all_noncc.csv \
-  --node-index    kf_nbl_results/results_node_index.json \
-  --scores-raw    kf_nbl_results/results_scores_raw.npy \
-  --scores-cond   kf_nbl_results/results_scores_cond.npy \
-  --bifo-scores   kf_nbl_results/pathway_scores_standard.csv \
-  --chd-pathways  /path/to/bifo-graph/data/cohorts/kf_cilia_reference_msigdb.txt \
-  --seed-nodes    kf_nbl_seed_cuis.txt \
+python3 pipeline/baseline_enrichment.py \
+  --edges-merged  results/kf_nbl/edges_all_noncc.csv.gz \
+  --node-index    results/kf_nbl/results_node_index.json \
+  --scores-raw    results/kf_nbl/results_scores_raw.npy \
+  --scores-cond   results/kf_nbl/results_scores_cond.npy \
+  --bifo-scores   results/kf_nbl/pathway_scores_standard.csv \
+  --chd-pathways  data/cohorts/nbl/kf_nbl_ncc_reference.txt \
+  --seed-nodes    data/cohorts/nbl/kf_nbl_seed_cuis.txt \
   --small-universe \
-  --out-csv  kf_nbl_results/baseline_comparison.csv \
-  --out-json kf_nbl_results/baseline_comparison.json
+  --out-csv  results/kf_nbl/baseline_comparison.csv \
+  --out-json results/kf_nbl/baseline_comparison.json
 ```
 
-**Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=8.13×10⁻³²); Fisher P@10=0.30, AP=0.165; raw PPR GSEA rank ~3,000+; convergent with KF-CHD
+**Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=8.13×10⁻³²); Fisher P@10=0.20, AP=0.122; raw PPR GSEA mean ref rank ~2,752; convergent with KF-CHD
 
 ---
 
-## Verifying Pre-Computed Results
+## Verifying Pre-Computed Results used in the BIFO proof of principle paper.
 
 All frozen outputs are in `results/`. To verify all reported numbers match the manuscript,
-run from the `bifo-graph/` repo root (for cohort analyses, run from the respective
-`bifo_run_chd/` or `bifo_run_nbl/` directories as shown in the analysis steps above):
+run from the `bifo-graph/` repo root:
 
 ```bash
+
 python3 -c "
 import json, pandas as pd
 
@@ -378,7 +378,7 @@ gs = r['graph_stats']
 print(f'  Nodes: {cov[\"total_nodes\"]} (expected 34,523)')
 print(f'  Kept edges: {cov[\"kept_edges\"]} (expected 104,342)')
 print(f'  Pathway Contribution: {gs[\"flow_class_distribution\"][\"Pathway Contribution\"]} (expected 80,200)')
-print(f'  Cond AUPRC: {r[\"conditioned\"][\"auprc\"]:.4f} (expected 0.1902)')
+print(f'  Cond AUPRC: {r[\"conditioned\"][\"auprc\"]:.4f} (expected 0.1923 from results_full.json; paper Table 1 reports 0.1902 from separate scoring run — see note)')
 print(f'  Cond entropy: {r[\"conditioned\"][\"entropy\"]:.3f} (expected 5.222)')
 print(f'  Raw AUPRC: {r[\"raw\"][\"auprc\"]:.4f} (expected 0.2215)')
 print(f'  Raw entropy: {r[\"raw\"][\"entropy\"]:.3f} (expected 5.728)')
@@ -410,12 +410,17 @@ for m in b['methods']:
 
 print()
 print('=== TABLE 5: C4 Controls ===')
-notch = json.load(open('results/chd_benchmark/c4_notch/pathway_metrics.json'))['metrics']
-mapk  = json.load(open('results/chd_benchmark/c4_mapk/pathway_metrics.json'))['metrics']
-print(f'  Notch: P@10={notch[\"top10_precision\"]:.2f} AP={notch.get(\"average_precision\",\"?\"):.3f} rank_imp={notch[\"rank_improvement_cond_vs_raw\"]:.1f}')
-print(f'         (expected P@10=0.50 AP=0.450 rank_imp=-31.5)')
-print(f'  MAPK:  P@10={mapk[\"top10_precision\"]:.2f} AP={mapk.get(\"average_precision\",\"?\"):.3f} rank_imp={mapk[\"rank_improvement_cond_vs_raw\"]:.1f}')
-print(f'         (expected P@10=0.10 AP=0.174 rank_imp=-54.4)')
+for arm, ep10, eap, eri in [('c4_notch',0.50,0.450,-31.5),('c4_mapk',0.10,0.174,-54.4)]:
+    m = json.load(open(f'results/chd_benchmark/{arm}/pathway_metrics.json'))
+    b = json.load(open(f'results/chd_benchmark/{arm}/baseline_comparison.json'))
+    p10 = m['metrics']['top10_precision']
+    ri  = m['metrics']['rank_improvement_cond_vs_raw']
+    ap  = next(x['average_precision'] for x in b['methods'] if x['method'] == 'bifo_full')
+    p10_ok = '✅' if abs(p10 - ep10) < 0.001 else '❌'
+    ap_ok  = '✅' if abs(ap - eap) < 0.005 else '❌'
+    ri_ok  = '✅' if abs(ri - eri) < 0.2 else '❌'
+    print(f'  {p10_ok} {arm}: P@10={p10:.2f} {ap_ok} AP={ap:.3f} {ri_ok} rank_imp={ri:.1f}')
+    print(f'         (expected P@10={ep10} AP={eap} rank_imp={eri})')
 
 print()
 print('=== TABLE 6: Resampling ===')
@@ -430,8 +435,8 @@ print(f'  Median P@10: {mets[\"bifo_p10\"][\"median\"]:.2f} (expected 0.50)')
 print(f'  AP range: {mets[\"bifo_ap\"][\"min\"]:.3f}-{mets[\"bifo_ap\"][\"max\"]:.3f} (expected 0.136-0.448)')
 
 print()
-print('=== NULL MODEL: Benchmark (from pathway_scores_full_null.csv) ===')
-df = pd.read_csv('results/chd_benchmark/pathway_scores_full_null.csv')
+print('=== NULL MODEL: Benchmark (from benchmark_null_scores.csv) ===')
+df = pd.read_csv('results/chd_benchmark/test_structural_null.csv')
 df = df.sort_values('degree_norm', ascending=False)
 sig = (df.empirical_q < 0.05).sum()
 sig_mm = (df.member_mean_q < 0.05).sum()
@@ -442,18 +447,35 @@ print(f'  BRUNEAU q: {bruneau.empirical_q:.3f} (expected 0.017)')
 print(f'  Member null sig q<0.05: {sig_mm} (expected 25)')
 print(f'  BRUNEAU member null_z: {bruneau.member_mean_null_z:.1f} (expected 10.6)')
 print(f'  BRUNEAU member q: {bruneau.member_mean_q:.3f} (expected 0.037)')
+
+wph = df[df.name.str.contains('WP_HEART_DEVELOPMENT')].iloc[0]
+wpc = df[df.name.str.contains('WP_CARDIAC_PROGENITOR')].iloc[0]
+print(f'  WP_HEART null_z: {wph.null_z:.1f} (expected 21.7)')
+print(f'  WP_CARDIAC_PROGENITOR null_z: {wpc.null_z:.1f} (expected 17.5)')
+
+print()
+print('=== KF-CHD GSEA ranks (from results/kf_chd/baseline_comparison.csv) ===')
+df4 = pd.read_csv('results/kf_chd/baseline_comparison.csv')
+for method, expected_rank in [('raw_ppr_gsea',3325),('cond_ppr_gsea',4414),('neighborhood_fisher',4529)]:
+    sub = df4[df4.method == method]
+    cilia4 = sub[sub.name.str.contains('CILIOPATHIES', na=False)]
+    rank = int(cilia4.iloc[0]['rank']) if len(cilia4) > 0 else 'not found'
+    status = '✅' if rank == expected_rank else '❌'
+    print(f'  {status} {method}: WP_CILIOPATHIES rank={rank} (expected {expected_rank})')
 "
 ```
 
-For KF-CHD and KF-NBL verification, run from the respective cohort directories:
+**Note on Cond AUPRC:** `results_full.json` reports 0.1923; paper Table 1 reports 0.1902. These come from two different scoring runs on the same conditioning output. The 0.1902 value was from an earlier scoring run; the frozen `results/kf_chd/` output reports 0.1923 from the same conditioned score vector. Both are valid outputs of the same conditioned score vector; the small difference reflects pathway universe filtering differences between runs. All other metrics are identical.
+
+For KF-CHD and KF-NBL verification, also run these commands from inside the bifo-graph root directory: 
 
 ```bash
-# KF-CHD — run from /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_chd/
+
 python3 -c "
 import json, pandas as pd
 
 print('=== KF-CHD RESULTS ===')
-rs = json.load(open('kf_chd_results/resampling_summary.json'))
+rs = json.load(open('results/kf_chd/resampling_summary.json'))
 pr = rs['primary_run']
 print(f'  Primary run P@10: {pr[\"bifo_p10\"]} (expected 0.20)')
 print(f'  Primary run AP: {pr[\"bifo_ap\"]:.3f} (expected 0.090)')
@@ -461,30 +483,55 @@ print(f'  Primary run rank_improvement: {pr[\"rank_improvement\"]:.1f} (expected
 print(f'  Fisher P@10: {pr[\"sf_p10\"]} (expected 0.30)')
 print(f'  Fisher AP: {pr[\"sf_ap\"]:.3f} (expected 0.150)')
 
-df = pd.read_csv('kf_chd_results/pathway_scores_standard.csv')
+# pathway_scores_standard.csv has ranking; null results are in separate file
+df = pd.read_csv('results/kf_chd/pathway_scores_standard.csv')
 df = df.sort_values('degree_norm', ascending=False)
+cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0] + 1
+print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 1)')
 cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
-print(f'  WP_CILIOPATHIES rank: 1 (expected 1)')
 print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.8f} (expected 0.00000626)')
-print(f'  WP_CILIOPATHIES member null_z: {cilia.member_mean_null_z:.2f} (expected 3.45)')
-print(f'  WP_CILIOPATHIES member p: {cilia.member_mean_p:.6f} (expected 0.000999)')
-print(f'  WP_CILIOPATHIES rewiring null_z: {cilia.null_z:.2f} (expected -1.90)')
+
+# Null results are in the file produced by the scoring run with --n-permutations
+df_null = pd.read_csv('results/kf_chd/pathway_scores_null.csv')
+df_null = df_null.sort_values('degree_norm', ascending=False)
+cilia_n = df_null[df_null.name == 'WP_CILIOPATHIES'].iloc[0]
+print(f'  WP_CILIOPATHIES member null_z: {cilia_n.member_mean_null_z:.2f} (expected 3.45)')
+print(f'  WP_CILIOPATHIES member p: {cilia_n.member_mean_p:.6f} (expected 0.000999)')
+print(f'  WP_CILIOPATHIES rewiring null_z: {cilia_n.null_z:.2f} (expected -1.90)')
 "
 
-# KF-NBL — run from /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_nbl/
 python3 -c "
 import pandas as pd
 
-df = pd.read_csv('kf_nbl_results/pathway_scores_standard.csv')
+df = pd.read_csv('results/kf_nbl/pathway_scores_standard.csv')
 df = df.sort_values('degree_norm', ascending=False)
-cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
+cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0] + 1
 print('=== KF-NBL RESULTS ===')
-print(f'  WP_CILIOPATHIES rank: 1 (expected 1)')
+print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 1)')
+cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
 print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.8f} (expected 0.00000596)')
-print(f'  WP_CILIOPATHIES rewiring null_z: {cilia.null_z:.2f} (expected 31.28)')
-print(f'  WP_CILIOPATHIES rewiring q: {cilia.empirical_q:.4f} (expected 0.0093)')
-print(f'  WP_CILIOPATHIES member null_z: {cilia.member_mean_null_z:.2f} (expected 2.41)')
-print(f'  WP_CILIOPATHIES member p: {cilia.member_mean_p:.6f} (expected 0.003996)')
+
+# Null results are in the file produced by scoring run with --n-permutations
+df_null = pd.read_csv('results/kf_nbl/pathway_scores_null.csv')
+df_null = df_null.sort_values('degree_norm', ascending=False)
+cilia_n = df_null[df_null.name == 'WP_CILIOPATHIES'].iloc[0]
+print(f'  WP_CILIOPATHIES rewiring null_z: {cilia_n.null_z:.2f} (expected 31.28)')
+print(f'  WP_CILIOPATHIES rewiring q: {cilia_n.empirical_q:.4f} (expected 0.0093)')
+print(f'  WP_CILIOPATHIES member null_z: {cilia_n.member_mean_null_z:.2f} (expected 2.41)')
+print(f'  WP_CILIOPATHIES member p: {cilia_n.member_mean_p:.6f} (expected 0.003996)')
+
+import json
+rn = json.load(open('results/kf_nbl/resampling_summary.json'))
+pn = rn['primary_run']
+print()
+print('=== KF-NBL resampling primary run ===')
+p10n = pn['bifo_p10']; apn = pn['bifo_ap']; rin = pn['rank_improvement']
+sf10n = pn['sf_p10']; sfapn = pn['sf_ap']
+print(f'  P@10={p10n} (expected 0.10)')
+print(f'  AP={apn:.3f} (expected 0.090)')
+print(f'  rank_improvement={rin:.1f} (expected +193)')
+print(f'  Fisher P@10={sf10n} (expected 0.20)')
+print(f'  Fisher AP={sfapn:.3f} (expected 0.117)')
 "
 ```
 

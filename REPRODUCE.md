@@ -24,14 +24,14 @@ python3 -c "
 import pandas as pd
 raw = pd.read_csv('data/benchmark/chd_curated_edges_raw.csv.zip')
 mem = pd.read_csv('data/benchmark/chd_curated_pathway_membership_edges.csv.zip')
-pd.concat([raw, mem], ignore_index=True).to_csv('/tmp/edges_merged_chd.csv', index=False)
+pd.concat([raw, mem], ignore_index=True).to_csv('../edges_merged_chd.csv', index=False)
 print(f'Merged: {len(raw)} + {len(mem)} = {len(raw)+len(mem)} edges')
 "
 
 # Run conditioning (four-arm PPR)
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
-  --edges   /tmp/edges_merged_chd.csv \
+  --edges   ../edges_merged_chd.csv \
   --mapping config/bifo_mapping.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
@@ -59,7 +59,7 @@ python3 pipeline/bifo_conditioning.py \
 ```bash
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
-  --edges   /tmp/edges_merged_chd.csv \
+  --edges   ../edges_merged_chd.csv \
   --mapping config/bifo_mapping.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
@@ -75,13 +75,13 @@ python3 -c "
 import zipfile, pandas as pd
 z = zipfile.ZipFile('results/chd_benchmark/results_full_kept_edges.csv.zip')
 name = [n for n in z.namelist() if '/' not in n][0]
-pd.read_csv(z.open(name), low_memory=False).to_csv('/tmp/chd_kept_edges.csv', index=False)
+pd.read_csv(z.open(name), low_memory=False).to_csv('../chd_kept_edges.csv', index=False)
 "
 
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         /tmp/edges_merged_chd.csv \
-  --edges-conditioned /tmp/chd_kept_edges.csv \
+  --edges-raw         ../edges_merged_chd.csv \
+  --edges-conditioned ../chd_kept_edges.csv \
   --scores-cond       results/chd_benchmark/results_full_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_full_scores_raw.npy \
   --node-index        results/chd_benchmark/results_node_index.json \
@@ -99,8 +99,8 @@ python3 pipeline/score_pathways.py \
 ```bash
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         /tmp/edges_merged_chd.csv \
-  --edges-conditioned /tmp/chd_kept_edges.csv \
+  --edges-raw         ../edges_merged_chd.csv \
+  --edges-conditioned ../chd_kept_edges.csv \
   --scores-cond       results/chd_benchmark/results_full_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_full_scores_raw.npy \
   --node-index        results/chd_benchmark/results_node_index.json \
@@ -122,7 +122,7 @@ python3 pipeline/score_pathways.py \
 # Ablation arm
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         /tmp/edges_merged_chd.csv \
+  --edges-raw         ../edges_merged_chd.csv \
   --edges-conditioned results/chd_benchmark/results_ablation_kept_edges.csv.zip \
   --scores-cond       results/chd_benchmark/results_ablation_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_ablation_scores_raw.npy \
@@ -136,7 +136,7 @@ python3 pipeline/score_pathways.py \
 # Mechanistic-only arm
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-raw         /tmp/edges_merged_chd.csv \
+  --edges-raw         ../edges_merged_chd.csv \
   --edges-conditioned results/chd_benchmark/results_mech_kept_edges.csv.zip \
   --scores-cond       results/chd_benchmark/results_mech_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_mech_scores_raw.npy \
@@ -152,7 +152,7 @@ python3 pipeline/score_pathways.py \
 
 ```bash
 python3 pipeline/baseline_enrichment.py \
-  --edges-merged  /tmp/edges_merged_chd.csv \
+  --edges-merged  ../edges_merged_chd.csv \
   --node-index    results/chd_benchmark/results_node_index.json \
   --scores-raw    results/chd_benchmark/results_full_scores_raw.npy \
   --scores-cond   results/chd_benchmark/results_full_scores_cond.npy \
@@ -173,7 +173,7 @@ import zipfile, pandas as pd, sys
 arm = sys.argv[1]
 z = zipfile.ZipFile(f'results/chd_benchmark/{arm}/results_kept_edges.csv.zip')
 name = [n for n in z.namelist() if '/' not in n][0]
-pd.read_csv(z.open(name), low_memory=False).to_csv(f'/tmp/{arm}_kept_edges.csv', index=False)
+pd.read_csv(z.open(name), low_memory=False).to_csv(f'../{arm}_kept_edges.csv', index=False)
 " $ARM
 done
 
@@ -181,8 +181,8 @@ done
 for ARM in c4_notch c4_mapk; do
   python3 pipeline/score_pathways.py \
     --nodes             data/benchmark/chd_curated_nodes.csv \
-    --edges-raw         /tmp/edges_merged_chd.csv \
-    --edges-conditioned /tmp/${ARM}_kept_edges.csv \
+    --edges-raw         ../edges_merged_chd.csv \
+    --edges-conditioned ../${ARM}_kept_edges.csv \
     --scores-cond       results/chd_benchmark/${ARM}/results_scores_cond.npy \
     --scores-raw        results/chd_benchmark/${ARM}/results_scores_raw.npy \
     --node-index        results/chd_benchmark/${ARM}/results_node_index.json \
@@ -199,7 +199,7 @@ done
 ```bash
 python3 pipeline/chd_resampling_exhaustive.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
-  --edges-merged      /tmp/edges_merged_chd.csv \
+  --edges-merged      ../edges_merged_chd.csv \
   --mapping           config/bifo_mapping.yaml \
   --gene-pool         data/benchmark/chd_seed_nodes.txt \
   --chd-pathways      data/benchmark/chd_pathway_reference.txt \
@@ -318,12 +318,16 @@ python3 /path/to/bifo-graph/pipeline/score_pathways.py \
   --seed-nodes        kf_nbl_seed_cuis.txt \
   --chd-pathways      /path/to/bifo-graph/data/cohorts/kf_cilia_reference_msigdb.txt \
   --min-members 8 --max-members 300 \
+  --n-permutations 1000 \
+  --null-type membership-rewiring \
+  --n-cores  192 \
   --out-csv  kf_nbl_results/pathway_scores_standard.csv \
-  --out-json kf_nbl_results/pathway_metrics_standard.json \
-  --n-cores  120
+  --out-json kf_nbl_results/pathway_metrics_standard.json
 ```
 
-**Expected:** WP_CILIOPATHIES rank 1 (independent replication of KF-CHD finding)
+**Expected (scoring):** WP_CILIOPATHIES rank 1 (independent replication of KF-CHD finding)
+
+**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=2.41, empirical p=0.004
 
 ### Step 3.3 — Baseline Enrichment
 
@@ -400,8 +404,11 @@ All analysis parameters are documented in `BENCHMARK_MANIFEST.md`. Key settings:
 | bifo_mapping.yaml version | v0.7.1 |
 | min_members filter | 8 |
 | max_members filter | 300 |
-| Null model | membership-rewiring |
+| Null model (pathway-node) | membership-rewiring |
+| Null model (member-level) | stratified gene set permutation |
 | Null permutations | 1000 |
 | Null random seed | 42 |
+| Member null bins | 10 degree × 10 membership count (log-quantile) |
+| Member null sampling | without replacement within null set |
 
 See `BENCHMARK_MANIFEST.md` for complete parameter documentation and expected output checksums.

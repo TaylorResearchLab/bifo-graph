@@ -114,7 +114,9 @@ python3 pipeline/score_pathways.py \
   --out-json results/chd_benchmark/pathway_metrics_full_null.json
 ```
 
-**Expected:** 49/550 significant q<0.05; BRUNEAU q=0.017 null_z=23.4
+**Expected (pathway-node rewiring null):** 49/550 pathways significant at q<0.05; BRUNEAU q=0.017 null_z=23.4
+
+**Expected (member-level stratified null):** 25/550 pathways significant at q<0.05; BRUNEAU null_z=10.6 q=0.037; WP_HEART_DEVELOPMENT null_z=10.9 q=0.037
 
 ### Step 1.6 — Pathway Scoring: Ablation and Mechanistic Arms (Table 3)
 
@@ -261,7 +263,11 @@ python3 /path/to/bifo-graph/pipeline/score_pathways.py \
   --n-cores  120
 ```
 
-**Expected:** WP_CILIOPATHIES rank 1, P@10=0.20 (50× background), rank improvement=+512
+**Expected (scoring):** WP_CILIOPATHIES rank 1, P@10=0.20 (50× background), rank improvement=+303
+
+**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=3.45, empirical p=0.000999 (floor, 1000 perms)
+
+> Note: when `--n-permutations` is set, `score_pathways.py` runs both the pathway-node membership rewiring null (columns: `empirical_q`, `null_z`) and the stratified member-level null (columns: `member_mean_q`, `member_mean_null_z`) in a single run.
 
 ### Step 2.3 — Baseline Enrichment
 

@@ -317,12 +317,20 @@ class PathwayScore:
     degree_flag: bool = False
     in_chd_set: bool = False
     contributing_seeds: List[str] = field(default_factory=list)
-    # Empirical null model outputs (None when --n-permutations not used)
+    # Empirical null model outputs — membership rewiring null for degree_norm
+    # (None when --n-permutations not used)
     empirical_p: Optional[float] = None
     empirical_q: Optional[float] = None
     null_mean: Optional[float] = None
     null_sd: Optional[float] = None
     null_z: Optional[float] = None
+    # Member-mean null outputs — stratified gene set permutation
+    # (None when --n-permutations not used)
+    member_mean_p: Optional[float] = None
+    member_mean_q: Optional[float] = None
+    member_mean_null_mean: Optional[float] = None
+    member_mean_null_sd: Optional[float] = None
+    member_mean_null_z: Optional[float] = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -1134,6 +1142,202 @@ def run_membership_rewiring_null(
     return null_matrix
 
 
+# ---------------------------------------------------------------------------
+# Member-mean null model (stratified gene set permutation — no PPR rerun)
+# Valid at all seed sizes. Tests whether pathway member genes carry
+# disproportionate propagated signal relative to degree+score matched sets.
+# Parallelized: each pathway's null distribution computed independently.
+# ---------------------------------------------------------------------------
+
+def build_gene_strata(
+    eligible_genes: List[str],
+    node_to_idx: Dict[str, int],
+    scores_cond: np.ndarray,
+    conditioned_edges: pd.DataFrame,
+    n_score_bins: int = 10,
+    n_degree_bins: int = 10,
+) -> Dict[str, List[str]]:
+    """Bin eligible genes by (log-degree, log-score) strata for matched sampling."""
+    prop = conditioned_edges.copy()
+    if 'propagating' in prop.columns:
+        prop = prop[prop['propagating'] == True]
+    prop['source'] = prop['source'].astype(str).map(
+        lambda x: removesuffix(x.strip(), ' CUI'))
+    degree_counts = prop['source'].value_counts()
+
+    genes_in_idx = [g for g in eligible_genes if g in node_to_idx]
+    if not genes_in_idx:
+        log.warning("build_gene_strata: no eligible genes in node index")
+        return {}
+
+    gene_scores = np.array([scores_cond[node_to_idx[g]] for g in genes_in_idx])
+    gene_degrees = np.array([float(degree_counts.get(g, 1)) for g in genes_in_idx])
+
+    eps = 1e-30
+    score_bins = np.percentile(np.log10(gene_scores + eps),
+                               np.linspace(0, 100, n_score_bins + 1))
+    degree_bins = np.percentile(np.log10(gene_degrees + eps),
+                                np.linspace(0, 100, n_degree_bins + 1))
+
+    score_bin_ids = np.digitize(np.log10(gene_scores + eps), score_bins[1:-1])
+    degree_bin_ids = np.digitize(np.log10(gene_degrees + eps), degree_bins[1:-1])
+
+    strata: Dict[str, List[str]] = {}
+    for gene, sb, db in zip(genes_in_idx, score_bin_ids, degree_bin_ids):
+        key = f"d{int(db)}_s{int(sb)}"
+        strata.setdefault(key, []).append(gene)
+
+    log.info("Gene strata: %d genes in %d strata", len(genes_in_idx), len(strata))
+    return strata
+
+
+# Module-level shared state for member_mean null workers
+_MM_SHARED = {}
+
+
+def _mm_worker_init(shared: dict) -> None:
+    global _MM_SHARED
+    _MM_SHARED = shared
+
+
+def _mm_worker_run_perm(perm_seed: int) -> np.ndarray:
+    """
+    Compute ONE permutation across ALL pathways.
+    Parallelizes over permutations (1000 workers) not pathways,
+    giving better load balance for large pathway universes.
+
+    Returns 1D array of length n_pathways (null member_mean for this perm).
+    """
+    g = _MM_SHARED
+    strata          = g['strata']
+    gene_to_stratum = g['gene_to_stratum']
+    node_to_idx     = g['node_to_idx']
+    scores_cond     = g['scores_cond']
+    pathway_members = g['pathway_members']  # List[List[str]]
+
+    all_eligible = [gg for genes in strata.values() for gg in genes]
+    rng = np.random.default_rng(perm_seed)
+
+    null_scores = np.zeros(len(pathway_members))
+    for i, members in enumerate(pathway_members):
+        if not members:
+            continue
+        null_genes = []
+        for gene in members:
+            sk = gene_to_stratum.get(gene)
+            candidates = [gg for gg in (strata.get(sk, []) if sk else [])
+                          if gg != gene]
+            if not candidates:
+                fallback = [gg for gg in all_eligible if gg != gene]
+                null_genes.append(str(rng.choice(fallback)) if fallback else gene)
+            else:
+                null_genes.append(str(rng.choice(candidates)))
+
+        vals = [scores_cond[node_to_idx[gg]]
+                for gg in null_genes if gg in node_to_idx]
+        null_scores[i] = float(np.mean(vals)) if vals else 0.0
+
+    return null_scores
+
+
+def run_member_mean_null(
+    scored: List[PathwayScore],
+    membership_map: Dict[str, List[str]],
+    node_to_idx: Dict[str, int],
+    scores_cond: np.ndarray,
+    conditioned_edges: pd.DataFrame,
+    seed_node_ids: List[str],
+    n_permutations: int = 1000,
+    n_score_bins: int = 10,
+    n_degree_bins: int = 10,
+    random_seed: int = 42,
+    n_cores: int = 1,
+) -> None:
+    """
+    Compute member_mean significance via stratified gene set permutation.
+
+    Parallelizes over permutations (not pathways) for optimal load balance:
+    each worker computes one full permutation across all pathways.
+    With N permutations and C cores, each core handles N/C permutations.
+
+    No PPR reruns required — valid at all seed sizes.
+    Results written directly to PathwayScore.member_mean_* fields.
+    """
+    eligible: Set[str] = set()
+    for members in membership_map.values():
+        for gg in members:
+            if gg in node_to_idx:
+                eligible.add(gg)
+    eligible_list = sorted(eligible)
+
+    if not eligible_list:
+        log.error("member_mean null: no eligible genes found")
+        return
+
+    strata = build_gene_strata(
+        eligible_list, node_to_idx, scores_cond, conditioned_edges,
+        n_score_bins=n_score_bins, n_degree_bins=n_degree_bins
+    )
+    gene_to_stratum: Dict[str, str] = {
+        gg: key for key, genes in strata.items() for gg in genes
+    }
+
+    pathways_with_members = [p for p in scored if p.member_gene_count > 0]
+    pathway_members = [
+        [m for m in membership_map.get(p.concept_id, []) if m in node_to_idx]
+        for p in pathways_with_members
+    ]
+
+    cores = min(n_cores, n_permutations) if n_cores > 1 else 1
+    log.info("member_mean null: %d pathways, %d perms, %d cores",
+             len(pathways_with_members), n_permutations, cores)
+
+    # Compute observed member_mean
+    observed_vals = np.array([
+        float(np.mean([scores_cond[node_to_idx[m]] for m in members]))
+        if members else 0.0
+        for members in pathway_members
+    ])
+
+    shared = {
+        'strata':          strata,
+        'gene_to_stratum': gene_to_stratum,
+        'node_to_idx':     node_to_idx,
+        'scores_cond':     scores_cond,
+        'pathway_members': pathway_members,
+    }
+
+    # Generate deterministic per-permutation seeds
+    rng = np.random.default_rng(random_seed)
+    perm_seeds = rng.integers(0, 2**31, size=n_permutations).tolist()
+
+    if cores > 1:
+        with mp.Pool(processes=cores,
+                     initializer=_mm_worker_init,
+                     initargs=(shared,)) as pool:
+            null_cols = pool.map(_mm_worker_run_perm, perm_seeds)
+    else:
+        _mm_worker_init(shared)
+        null_cols = [_mm_worker_run_perm(ps) for ps in perm_seeds]
+
+    # null_cols: list of n_permutations arrays each of shape (n_pathways,)
+    null_matrix = np.column_stack(null_cols)  # shape: (n_pathways, n_perms)
+
+    pval_results = compute_empirical_pvalues(observed_vals, null_matrix)
+
+    sig_05 = 0
+    for i, pathway in enumerate(pathways_with_members):
+        pathway.member_mean_p         = float(pval_results['empirical_p'][i])
+        pathway.member_mean_q         = float(pval_results['empirical_q'][i])
+        pathway.member_mean_null_mean = float(pval_results['null_mean'][i])
+        pathway.member_mean_null_sd   = float(pval_results['null_sd'][i])
+        pathway.member_mean_null_z    = float(pval_results['null_z'][i])
+        if pathway.member_mean_q < 0.05:
+            sig_05 += 1
+
+    log.info("member_mean null complete: %d / %d pathways significant at q < 0.05",
+             sig_05, len(pathways_with_members))
+
 
 # ---------------------------------------------------------------------------
 # Scoring engine
@@ -1444,12 +1648,31 @@ def score_pathways(
         _null_universe_size = len(build_null_seed_universe(membership_map_scored, node_to_idx))
         _n_effective_seeds = n_effective_seeds
 
+        # Also run member_mean stratified null (no PPR reruns — valid at all seed sizes)
+        log.info("Running member_mean stratified null (%d permutations)...",
+                 n_permutations)
+        run_member_mean_null(
+            scored=scored,
+            membership_map=membership_map,
+            node_to_idx=node_to_idx,
+            scores_cond=scores_cond,
+            conditioned_edges=conditioned_edges,
+            seed_node_ids=seed_node_ids,
+            n_permutations=n_permutations,
+            random_seed=random_seed,
+            n_cores=n_cores,
+        )
+
     metrics = evaluate_pathway_recovery(scored, score_variant=score_variant)
     # Add null model metadata to metrics if available
     if n_permutations > 0 and scored and any(p.empirical_q is not None for p in scored):
         metrics['null_universe_size'] = float(_null_universe_size)
         metrics['n_effective_seeds'] = float(_n_effective_seeds)
         metrics['n_permutations_run'] = float(n_permutations)
+    if n_permutations > 0 and scored and any(p.member_mean_q is not None for p in scored):
+        n_sig_mm = sum(1 for p in scored
+                       if p.member_mean_q is not None and p.member_mean_q < 0.05)
+        metrics['n_significant_member_mean_q05'] = float(n_sig_mm)
     return scored, metrics
 
 

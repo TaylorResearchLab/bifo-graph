@@ -8,9 +8,9 @@ Code and data repository for:
 > *BIFO: A Biological Information Flow Ontology for Knowledge Graph-Directed Pathway Analysis of Rare Variant Cohort Data.*
 > Manuscript in preparation, 2026.
 
-BIFO defines admissible biological information flow on knowledge graphs, transforming them into directed propagation substrates for mechanistically grounded biological inference. Applied to variant-derived gene lists, it recovers ranked pathway hypotheses using personalized PageRank (PPR) propagation over the Data Distillery Knowledge Graph (DDKG).
+BIFO defines admissible biological information flow on knowledge graphs, transforming them into directed propagation substrates for mechanistically grounded biological inference. BIFO operates on propagated signal rather than set membership, enabling inference over biological communication structure rather than direct overlap alone. Applied to variant-derived gene lists, it recovers ranked pathway hypotheses using personalized PageRank (PPR) propagation over the Data Distillery Knowledge Graph (DDKG).
 
-BIFO complements standard enrichment methods: Fisher enrichment identifies direct gene–pathway overlap, while BIFO identifies propagated signal across biological relationships. Convergence between methods provides strong validation of biological signal.
+BIFO complements standard enrichment methods: Fisher enrichment identifies direct gene–pathway overlap, while BIFO identifies propagated signal across biological relationships. When both methods identify the same top pathway independently, their convergence provides strong validation of the biological signal.
 
 ---
 
@@ -250,12 +250,12 @@ bash run_test.sh
 `score_pathways.py` implements two complementary empirical null frameworks:
 
 **Pathway-node null (membership rewiring)**
-Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-NBL: 46.3% bridge); miscalibrated when bridge edges dominate the propagating graph (KF-CHD: 93.9% bridge).
+Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-NBL: 46.3% bridge); miscalibrated when bridge edges dominate the propagating graph (KF-CHD: 93.9% bridge). Percentages derived from propagating edge counts in each conditioned graph.
 
 **Member-level null (stratified gene set permutation)**
-Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction and valid at all seed sizes. Tests signal concentration within pathway genes, not whether signal reaches the pathway node itself.
+Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction and empirically stable across seed sizes. Tests whether propagated signal concentrates within pathway member genes, not whether signal reaches the pathway node itself.
 
-Both nulls run in a single invocation:
+Both nulls run in a single invocation when `--null-type membership-rewiring` is specified:
 
 ```bash
 python pipeline/score_pathways.py \

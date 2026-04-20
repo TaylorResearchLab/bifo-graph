@@ -8,7 +8,9 @@ Code and data repository for:
 > *BIFO: A Biological Information Flow Ontology for Knowledge Graph-Directed Pathway Analysis of Rare Variant Cohort Data.*
 > Manuscript in preparation, 2026.
 
-BIFO transforms heterogeneous biomedical knowledge graphs into constrained propagation substrates by classifying edges into biologically admissible flow classes. Applied to variant-derived gene lists, it recovers ranked pathway hypotheses using personalized PageRank (PPR) propagation over the Data Distillery Knowledge Graph (DDKG).
+BIFO defines admissible biological information flow on knowledge graphs, transforming them into directed propagation substrates for mechanistically grounded biological inference. Applied to variant-derived gene lists, it recovers ranked pathway hypotheses using personalized PageRank (PPR) propagation over the Data Distillery Knowledge Graph (DDKG).
+
+BIFO complements standard enrichment methods: Fisher enrichment identifies direct gene–pathway overlap, while BIFO identifies propagated signal across biological relationships. Convergence between methods provides strong validation of biological signal.
 
 ---
 
@@ -18,7 +20,7 @@ BIFO transforms heterogeneous biomedical knowledge graphs into constrained propa
 bifo-graph/
 ├── pipeline/                    Core Python analysis scripts
 │   ├── bifo_conditioning.py     BIFO edge conditioning + PPR propagation (primary)
-│   ├── score_pathways.py        Pathway scoring (degree_norm and variants)
+│   ├── score_pathways.py        Pathway scoring + empirical null models (degree_norm, member_mean, null significance)
 │   ├── baseline_enrichment.py   Enrichment baselines (Fisher, GSEA, degree overlap)
 │   ├── chd_resampling_exhaustive.py  Exhaustive CHD seed-split resampling (3,003 splits)
 │   ├── kf_resampling.py         Bootstrap resampling for KF cohort analyses
@@ -155,11 +157,16 @@ python pipeline/score_pathways.py \
   --out-csv results/chd_benchmark/pathway_scores_standard.csv \
   --out-json results/chd_benchmark/pathway_metrics_standard.json
 
-# Note on edge files: pathway membership edges are used only during pathway
-# scoring (step 2 above), not during BIFO conditioning (step 1). The
-# conditioning step operates on the raw mechanistic edge file only.
-# The --edges-merged argument to baseline_enrichment.py supplies the merged
-# file (raw + membership) for Fisher neighborhood expansion.
+# Note on edge files:
+# - Full arm (primary analysis): conditioning uses edges_merged.csv
+#   (raw mechanistic edges + pathway membership edges combined)
+# - Ablation arm: conditioning uses edges_raw.csv only (no membership edges)
+# - Mechanistic arm: conditioning uses classification-filtered subset
+# The merged file (raw + membership) is also required by baseline_enrichment.py
+# for Fisher neighborhood expansion.
+#
+# The Quick Start above uses edges_raw.csv for simplicity; see REPRODUCE.md
+# for the exact merged-edge commands used in the paper.
 
 # 3. Run baselines
 python pipeline/baseline_enrichment.py \
@@ -172,6 +179,11 @@ python pipeline/baseline_enrichment.py \
   --seed-nodes data/benchmark/chd_seed_nodes.txt \
   --out-csv results/chd_benchmark/baseline_comparison.csv \
   --out-json results/chd_benchmark/baseline_comparison.json
+
+# Expected outputs after steps 1-2:
+#   pathway_scores_standard.csv — 550 ranked pathways
+#   BRUNEAU_SEPTATION_VENTRICULAR rank 1
+#   P@10 = 0.70, mean rank improvement = +99.1
 
 # 4. Run exhaustive resampling (3,003 splits)
 python pipeline/chd_resampling_exhaustive.py \
@@ -213,6 +225,7 @@ bash run_test.sh
 | §6 Baseline enrichment | `pipeline/baseline_enrichment.py` |
 | §9 Exhaustive resampling | `pipeline/chd_resampling_exhaustive.py` |
 | §10 KF cohort analysis | `scripts/run_full_pipeline.sh`, `pipeline/kf_resampling.py` |
+| §8.4 Empirical null models | `pipeline/score_pathways.py` (`--n-permutations`, `--null-type`) |
 
 ---
 
@@ -232,7 +245,47 @@ bash run_test.sh
 
 ---
 
+## Empirical null models
+
+`score_pathways.py` implements two complementary empirical null frameworks:
+
+**Pathway-node null (membership rewiring)**
+Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-NBL: 46.3% bridge); miscalibrated when bridge edges dominate the propagating graph (KF-CHD: 93.9% bridge).
+
+**Member-level null (stratified gene set permutation)**
+Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction and valid at all seed sizes. Tests signal concentration within pathway genes, not whether signal reaches the pathway node itself.
+
+Both nulls run in a single invocation:
+
+```bash
+python pipeline/score_pathways.py \
+  ... \
+  --n-permutations 1000 \
+  --null-type membership-rewiring \
+  --n-cores 120
+```
+
+Output columns: `empirical_q`, `null_z` (pathway-node null); `member_mean_q`, `member_mean_null_z` (member-level null).
+
+See Methods §8.4 and REPRODUCE.md for full validation results.
+
+---
+
 ## Benchmark freeze
+
+Default frozen parameters used in all manuscript analyses:
+
+| Parameter | Value |
+|-----------|-------|
+| PPR alpha (α) | 0.5 |
+| PPR tolerance | 1×10⁻¹⁰ |
+| PPR max iterations | 500 |
+| min_members filter | 8 |
+| max_members filter | 300 |
+| Null permutations | 1000 |
+| Null random seed | 42 |
+
+Default pathway name exclusions: `*_Q2`–`*_Q6`, `MIR*` (suppresses quartile gene sets and miRNA targets).
 
 Frozen benchmark parameters and expected output metrics are documented in
 `BENCHMARK_MANIFEST.md` at the repository root. This file serves as the
@@ -255,9 +308,27 @@ The YAML file encodes the BIFO flow class definitions (v0.7.1):
   `observational`, `contextual_constraint`, `nonpropagating_context`
 
 This file encodes the operational instantiation of BIFO for the DDKG and is
-the primary artifact controlling propagation behavior in this analysis. Modifying
+the primary artifact controlling propagation behavior in this analysis.
+
+**Note on two-layer architecture:** The observation that mechanistic edges alone
+cannot reach pathway nodes reflects the structure of the DDKG export used here,
+in which gene-to-pathway membership edges form a structurally distinct layer.
+This property may vary with different graph constructions or vocabulary selections. Modifying
 it changes which edges are admissible for propagation and will alter all
 downstream results.
+
+---
+
+## Exact reproduction commands
+
+See **REPRODUCE.md** at the repository root for exact CLI commands to reproduce
+every result reported in the manuscript, including expected output values for
+all three analyses (benchmark, KF-CHD, KF-NBL).
+
+Approximate runtimes (120–192 cores, HPC):
+- Benchmark scoring + 1000-permutation null: ~3 minutes
+- KF-CHD scoring + 1000-permutation null: ~35 minutes
+- KF-NBL scoring + 1000-permutation null: ~55 minutes
 
 ---
 

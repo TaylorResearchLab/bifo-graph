@@ -253,7 +253,7 @@ bash run_test.sh
 Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-NBL: 46.3% bridge); miscalibrated when bridge edges dominate the propagating graph (KF-CHD: 93.9% bridge). Percentages derived from propagating edge counts in each conditioned graph.
 
 **Member-level null (stratified gene set permutation)**
-Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction and empirically stable across seed sizes. Tests whether propagated signal concentrates within pathway member genes, not whether signal reaches the pathway node itself.
+Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction than the pathway-node rewiring null, and empirically stable across seed sizes. Tests whether propagated signal concentrates within pathway member genes, not whether signal reaches the pathway node itself.
 
 Both nulls run in a single invocation when `--null-type membership-rewiring` is specified:
 
@@ -266,6 +266,8 @@ python pipeline/score_pathways.py \
 ```
 
 Output columns: `empirical_q`, `null_z` (pathway-node null); `member_mean_q`, `member_mean_null_z` (member-level null).
+
+The pathway-node null and member-level null test distinct quantities: the former evaluates pathway-node signal accumulation, while the latter evaluates concentration of propagated signal within pathway member genes.
 
 See Methods §8.4 and REPRODUCE.md for full validation results.
 

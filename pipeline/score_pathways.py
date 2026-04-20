@@ -1157,7 +1157,17 @@ def build_gene_strata(
     n_score_bins: int = 10,
     n_degree_bins: int = 10,
 ) -> Dict[str, List[str]]:
-    """Bin eligible genes by (log-degree, log-score) strata for matched sampling."""
+    """
+    Bin eligible genes by structural features only for matched null sampling.
+
+    Matching is based on:
+      (1) conditioned graph out-degree (log-binned) — controls for hub genes
+      (2) pathway membership count (log-binned) — controls for broadly annotated genes
+
+    Observed propagated score is intentionally excluded from strata to avoid
+    conditioning the null on the same quantity being tested (member_mean).
+    This gives a structurally matched but score-naive null.
+    """
     prop = conditioned_edges.copy()
     if 'propagating' in prop.columns:
         prop = prop[prop['propagating'] == True]
@@ -1165,29 +1175,36 @@ def build_gene_strata(
         lambda x: removesuffix(x.strip(), ' CUI'))
     degree_counts = prop['source'].value_counts()
 
+    # Count pathway memberships per gene across all pathways
+    bridge = prop[prop.get('bifo_flow', pd.Series(dtype=str)) == 'Pathway Contribution']         if 'bifo_flow' in prop.columns else prop.iloc[0:0]
+    membership_counts = bridge['source'].value_counts()         if not bridge.empty else pd.Series(dtype=int)
+
     genes_in_idx = [g for g in eligible_genes if g in node_to_idx]
     if not genes_in_idx:
         log.warning("build_gene_strata: no eligible genes in node index")
         return {}
 
-    gene_scores = np.array([scores_cond[node_to_idx[g]] for g in genes_in_idx])
     gene_degrees = np.array([float(degree_counts.get(g, 1)) for g in genes_in_idx])
+    gene_memberships = np.array([float(membership_counts.get(g, 1))
+                                 for g in genes_in_idx])
 
     eps = 1e-30
-    score_bins = np.percentile(np.log10(gene_scores + eps),
-                               np.linspace(0, 100, n_score_bins + 1))
     degree_bins = np.percentile(np.log10(gene_degrees + eps),
                                 np.linspace(0, 100, n_degree_bins + 1))
+    membership_bins = np.percentile(np.log10(gene_memberships + eps),
+                                    np.linspace(0, 100, n_score_bins + 1))
 
-    score_bin_ids = np.digitize(np.log10(gene_scores + eps), score_bins[1:-1])
     degree_bin_ids = np.digitize(np.log10(gene_degrees + eps), degree_bins[1:-1])
+    membership_bin_ids = np.digitize(np.log10(gene_memberships + eps),
+                                     membership_bins[1:-1])
 
     strata: Dict[str, List[str]] = {}
-    for gene, sb, db in zip(genes_in_idx, score_bin_ids, degree_bin_ids):
-        key = f"d{int(db)}_s{int(sb)}"
+    for gene, db, mb in zip(genes_in_idx, degree_bin_ids, membership_bin_ids):
+        key = f"d{int(db)}_m{int(mb)}"
         strata.setdefault(key, []).append(gene)
 
-    log.info("Gene strata: %d genes in %d strata", len(genes_in_idx), len(strata))
+    log.info("Gene strata: %d genes in %d strata (degree x membership bins)",
+             len(genes_in_idx), len(strata))
     return strata
 
 
@@ -1206,6 +1223,10 @@ def _mm_worker_run_perm(perm_seed: int) -> np.ndarray:
     Parallelizes over permutations (1000 workers) not pathways,
     giving better load balance for large pathway universes.
 
+    For each pathway, draws a matched null gene set without replacement
+    within each stratum, avoiding duplicate genes in the null set.
+    Strata are structural only (degree + membership count bins).
+
     Returns 1D array of length n_pathways (null member_mean for this perm).
     """
     g = _MM_SHARED
@@ -1222,16 +1243,30 @@ def _mm_worker_run_perm(perm_seed: int) -> np.ndarray:
     for i, members in enumerate(pathway_members):
         if not members:
             continue
+
+        # Draw without replacement across the full set to avoid duplicates
+        # Track already-selected genes to prevent reuse within this pathway
+        selected: Set[str] = set()
         null_genes = []
+
         for gene in members:
             sk = gene_to_stratum.get(gene)
+            # Candidates: same stratum, not the true gene, not already selected
             candidates = [gg for gg in (strata.get(sk, []) if sk else [])
-                          if gg != gene]
+                          if gg != gene and gg not in selected]
             if not candidates:
-                fallback = [gg for gg in all_eligible if gg != gene]
-                null_genes.append(str(rng.choice(fallback)) if fallback else gene)
+                # Fall back to any eligible gene not yet selected
+                fallback = [gg for gg in all_eligible
+                            if gg != gene and gg not in selected]
+                if fallback:
+                    chosen = str(rng.choice(fallback))
+                else:
+                    chosen = gene  # degenerate: reuse true gene
             else:
-                null_genes.append(str(rng.choice(candidates)))
+                chosen = str(rng.choice(candidates))
+
+            null_genes.append(chosen)
+            selected.add(chosen)
 
         vals = [scores_cond[node_to_idx[gg]]
                 for gg in null_genes if gg in node_to_idx]

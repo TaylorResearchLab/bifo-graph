@@ -268,18 +268,7 @@ DEFAULT_MEMBERSHIP_SOURCES: List[MembershipSource] = [
         forward_predicates=[],
         reverse_predicates=[],
         source_type='gene_member',
-    ),
-    MembershipSource(
-        pathway_sab='NCC_CUSTOM',
-        gene_sabs=['HGNC'],
-        forward_predicates=[
-            'pathway_associated_with_gene',
-        ],
-        reverse_predicates=[
-            'inverse_pathway_associated_with_gene',
-        ],
-        source_type='gene_member',
-    ),
+    )
 ]
 
 PATHWAY_SABS: FrozenSet[str] = frozenset([
@@ -1535,6 +1524,7 @@ def score_pathways(
     min_members: int = 1,
     max_members: Optional[int] = None,
     excluded_name_patterns: Optional[List[str]] = None,
+    allowed_name_prefixes: Optional[List[str]] = None,
     n_cores: int = 1,
     n_permutations: int = 0,
     null_type: str = 'membership-rewiring',
@@ -1608,6 +1598,15 @@ def score_pathways(
                   if not any(pat.upper() in p.name.upper()
                              for pat in excluded_name_patterns)]
         log.info("name pattern filter: %d -> %d pathways",
+                 n_before2, len(scored))
+
+    if allowed_name_prefixes:
+        n_before2 = len(scored)
+        scored = [p for p in scored
+                  if p.sab not in ('MSIGDB',)
+                  or any(p.name.upper().startswith(pfx.upper())
+                         for pfx in allowed_name_prefixes)]
+        log.info("allowed_name_prefixes filter: %d -> %d pathways",
                  n_before2, len(scored))
 
     # Empirical null model
@@ -1800,6 +1799,11 @@ Examples:
     parser.add_argument("--score-variant",     default="degree_norm",
                         choices=["direct","member_mean","member_max","degree_norm","local_bg"])
     parser.add_argument("--min-members",       type=int, default=1)
+    parser.add_argument("--allowed-name-prefixes", nargs="+", default=None,
+                        help="If set, only keep MSIGDB pathways whose names start "
+                             "with one of these prefixes (e.g. HALLMARK_ REACTOME_ "
+                             "WP_ KEGG_ BIOCARTA_ PID_). Non-MSIGDB pathways (GO) "
+                             "are always kept.")
     parser.add_argument("--max-members",       type=int, default=None)
     parser.add_argument("--n-cores",           type=int, default=1,
                         help="Parallel workers (0 = auto-detect). Used for both "
@@ -1868,6 +1872,7 @@ Examples:
         scores_raw=scores_raw_arr,
         node_to_idx=node_to_idx,
         seed_node_ids=seed_ids,
+        allowed_name_prefixes=args.allowed_name_prefixes,
         chd_pathway_set=chd_set,
         score_variant=args.score_variant,
         min_members=args.min_members,

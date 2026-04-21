@@ -195,24 +195,33 @@ ORDER BY node_id;
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-// QUERY 5 — Full MSIGDB pathway membership edges → save as: kf_nbl_pathway_membership_edges.csv
+// QUERY 5 — MSIGDB gene→pathway membership edges → save as: kf_nbl_pathway_membership_edges.csv
 // Columns: source, target, predicate
 //
-// NOTE: This query is unconditional — it exports ALL MSIGDB pathway→gene
-// membership edges from the DDKG regardless of whether genes appear in the
-// 1-hop seed neighborhood. This ensures complete pathway membership for
-// degree_norm scoring and Fisher enrichment baselines.
-// Previous versions of this query used a seed-based traversal which produced
-// incomplete membership counts for pathways with members not adjacent to seeds.
+// Exports gene→pathway membership edges only (unidirectional).
+// Signal flows FROM genes TO pathways in the BIFO PPR operator.
+// Pathway→gene direction (pathway_associated_with_gene) is excluded to
+// prevent feedback amplification loops in the PPR operator.
+// Includes both MSIGDB C2.CP (inverse_pathway_associated_with_gene)
+// and Hallmark (inverse_has_signature_gene) membership predicates.
 // ---------------------------------------------------------------------------
 MATCH (pw:Concept)-[:CODE]->(code:Code)
 WHERE code.SAB = 'MSIGDB'
 WITH pw
-MATCH (pw)-[:pathway_associated_with_gene]->(gene:Concept)
+MATCH (gene:Concept)-[:inverse_pathway_associated_with_gene]->(pw)
 RETURN DISTINCT
-    pw.CUI   AS source,
-    gene.CUI AS target,
-    'pathway_associated_with_gene' AS predicate
+    gene.CUI AS source,
+    pw.CUI   AS target,
+    'inverse_pathway_associated_with_gene' AS predicate
+UNION
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (gene:Concept)-[:inverse_has_signature_gene]->(pw)
+RETURN DISTINCT
+    gene.CUI AS source,
+    pw.CUI   AS target,
+    'inverse_has_signature_gene' AS predicate
 ORDER BY source, target;
 
 

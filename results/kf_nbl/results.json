@@ -9,26 +9,26 @@
     "missing_heldout": []
   },
   "coverage": {
-    "total_nodes": 880476,
-    "total_concept_nodes": 880476,
+    "total_nodes": 880456,
+    "total_concept_nodes": 880456,
     "total_code_nodes": 0,
     "resolved_code_nodes": 0,
     "unresolved_code_nodes": 0,
     "resolved_concept_nodes": 505859,
-    "unresolved_concept_nodes": 374617,
-    "concept_fallthrough_count": 374617,
-    "level1_concept_coverage": 0.5745290047656041,
-    "total_edges": 6481897,
-    "total_concept_edges": 5863923,
+    "unresolved_concept_nodes": 374597,
+    "concept_fallthrough_count": 374597,
+    "level1_concept_coverage": 0.574542055480342,
+    "total_edges": 6481175,
+    "total_concept_edges": 5863201,
     "concept_edges_with_resolved_endpoints": 5066189,
-    "kept_edges": 2647055,
-    "dropped_edges": 3216868,
+    "kept_edges": 2654867,
+    "dropped_edges": 3208334,
     "dropped_non_flow": 19531,
-    "dropped_unmapped_predicate": 2399603,
-    "dropped_unresolved_entity": 797734,
-    "level2_edge_coverage": 0.45141366965425705
+    "dropped_unmapped_predicate": 2391791,
+    "dropped_unresolved_entity": 797012,
+    "level2_edge_coverage": 0.4528016351477631
   },
-  "concept_fallthrough_count": 374617,
+  "concept_fallthrough_count": 374597,
   "concept_fallthrough_preview": [
     "-",
     "C0000618",
@@ -132,15 +132,14 @@
     "C0015840"
   ],
   "graph_stats": {
-    "raw_concept_edges": 5863923,
-    "conditioned_propagating_edges": 2256073,
+    "raw_concept_edges": 5863201,
+    "conditioned_propagating_edges": 1577205,
     "flow_class_distribution": {
       "Protein Interaction": 165,
-      "Spatial constraint": 184570,
       "Signal Transduction": 537021,
       "Transcription": 160091,
       "Genetic Regulatory Modulation": 2164,
-      "Pathway Contribution": 1043494,
+      "Pathway Contribution": 549196,
       "Translation": 2626,
       "Signal Termination": 35175,
       "Perturbational Effect": 290750,
@@ -149,35 +148,35 @@
     }
   },
   "raw": {
-    "auroc": 0.9999977248967956,
-    "auprc": 0.9909401757364931,
-    "localization": 0.6129447996606217,
+    "auroc": 0.9999977248450335,
+    "auprc": 0.9909402067666198,
+    "localization": 0.61294324799913,
     "topk_50": 0.96,
     "topk_100": 0.98,
-    "entropy": 9.646089262145841
+    "entropy": 9.645964204265889
   },
   "metadata_filtered": {
-    "auroc": 0.9999977248967955,
-    "auprc": 0.9909401757364931,
-    "localization": 0.6082387890731489,
+    "auroc": 0.9999977248450336,
+    "auprc": 0.9909402067666198,
+    "localization": 0.6082371201756459,
     "topk_50": 0.96,
     "topk_100": 0.98,
-    "entropy": 9.53804615593881
+    "entropy": 9.53790864481089
   },
   "conditioned": {
-    "auroc": 0.9999999999999999,
-    "auprc": 0.9999999999999999,
-    "localization": 0.6450631540630221,
+    "auroc": 1.0,
+    "auprc": 0.9999999999999996,
+    "localization": 0.665470845345393,
     "topk_50": 1.0,
     "topk_100": 1.0,
-    "entropy": 9.570744744850824
+    "entropy": 9.415828705326916
   },
   "random_sparsification_control": {
-    "auroc": 0.9999978292742903,
-    "auprc": 0.9934177984217678,
-    "localization": 0.6172765279118222,
+    "auroc": 0.9999988624225168,
+    "auprc": 0.9951122262917262,
+    "localization": 0.6198707884714239,
     "topk_50": 0.98,
     "topk_100": 0.99,
-    "entropy": 9.575944385803378
+    "entropy": 9.537762948052514
   }
 }

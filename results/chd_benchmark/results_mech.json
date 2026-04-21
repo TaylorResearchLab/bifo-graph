@@ -21,12 +21,12 @@
     "total_edges": 174352,
     "total_concept_edges": 174352,
     "concept_edges_with_resolved_endpoints": 142138,
-    "kept_edges": 104342,
-    "dropped_edges": 70010,
+    "kept_edges": 105192,
+    "dropped_edges": 69160,
     "dropped_non_flow": 348,
-    "dropped_unmapped_predicate": 37448,
+    "dropped_unmapped_predicate": 36598,
     "dropped_unresolved_entity": 32214,
-    "level2_edge_coverage": 0.5984559970634119
+    "level2_edge_coverage": 0.6033311920712122
   },
   "concept_fallthrough_count": 15626,
   "concept_fallthrough_preview": [
@@ -155,22 +155,22 @@
   "metadata_filtered": {
     "auroc": 0.9997102960774089,
     "auprc": 0.22147852147852148,
-    "localization": 0.018275446354078094,
+    "localization": 0.0182754463540781,
     "topk_50": 0.1,
     "topk_100": 0.05,
-    "entropy": 5.648174741741462
+    "entropy": 5.648174741741464
   },
   "conditioned": {
     "auroc": 0.9982675705429052,
-    "auprc": 0.1485592388229305,
-    "localization": 0.004770791843917584,
+    "auprc": 0.14855923882293054,
+    "localization": 0.004770791843917583,
     "topk_50": 0.08,
     "topk_100": 0.04,
     "entropy": 4.769676108074777
   },
   "random_sparsification_control": {
     "auroc": 0.9817892114259227,
-    "auprc": 0.048560746809103134,
+    "auprc": 0.04856074680910313,
     "localization": 0.002866384661281943,
     "topk_50": 0.04,
     "topk_100": 0.02,

@@ -16,3 +16,12 @@ __pycache__/
 .vscode/
 .idea/
 updated_md.zip
+results/chd_benchmark/chd_kept_edges.csv
+results/chd_benchmark/edges_merged_chd.csv
+results/chd_benchmark/results_*_kept_edges.csv
+results/chd_benchmark/c4_*_kept_edges.csv
+results/chd_benchmark/results_*_node_index.json
+results/chd_benchmark/results_*_scores_meta.npy
+results/chd_benchmark/results_*_scores_rand.npy
+results/kf_chd/results_kept_edges.csv
+results/kf_nbl/results_kept_edges.csv

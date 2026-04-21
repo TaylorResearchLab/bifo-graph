@@ -21,12 +21,12 @@
     "total_edges": 94790,
     "total_concept_edges": 94790,
     "concept_edges_with_resolved_endpoints": 63026,
-    "kept_edges": 26059,
-    "dropped_edges": 68731,
+    "kept_edges": 26080,
+    "dropped_edges": 68710,
     "dropped_non_flow": 348,
-    "dropped_unmapped_predicate": 36619,
+    "dropped_unmapped_predicate": 36598,
     "dropped_unresolved_entity": 31764,
-    "level2_edge_coverage": 0.2749129655026902
+    "level2_edge_coverage": 0.27513450785947885
   },
   "concept_fallthrough_count": 15626,
   "concept_fallthrough_preview": [
@@ -133,13 +133,12 @@
   ],
   "graph_stats": {
     "raw_concept_edges": 94790,
-    "conditioned_propagating_edges": 16026,
+    "conditioned_propagating_edges": 14413,
     "flow_class_distribution": {
-      "Pathway Contribution": 1917,
+      "Pathway Contribution": 1106,
       "Translation": 46,
       "Signal Transduction": 5786,
       "Signal Termination": 484,
-      "Spatial constraint": 802,
       "Transcription": 1573,
       "Perturbational Effect": 5392,
       "Genetic Regulatory Modulation": 20,
@@ -149,15 +148,15 @@
   "raw": {
     "auroc": 0.9997102960774089,
     "auprc": 0.22147852147852148,
-    "localization": 0.01765921158948969,
+    "localization": 0.017659211589489694,
     "topk_50": 0.1,
     "topk_100": 0.05,
-    "entropy": 5.515587361632739
+    "entropy": 5.515587361632738
   },
   "metadata_filtered": {
     "auroc": 0.9997102960774089,
     "auprc": 0.22147852147852148,
-    "localization": 0.022803397601507142,
+    "localization": 0.022803397601507135,
     "topk_50": 0.1,
     "topk_100": 0.05,
     "entropy": 5.387991457153696
@@ -165,17 +164,17 @@
   "conditioned": {
     "auroc": 0.9997102960774089,
     "auprc": 0.22147852147852148,
-    "localization": 0.015304073874811855,
+    "localization": 0.013373652578759969,
     "topk_50": 0.1,
     "topk_100": 0.05,
-    "entropy": 4.9392417210137864
+    "entropy": 4.919391589179744
   },
   "random_sparsification_control": {
-    "auroc": 0.9997102960774089,
-    "auprc": 0.22147852147852148,
-    "localization": 0.0090857010464431,
-    "topk_50": 0.1,
+    "auroc": 0.9994611507039806,
+    "auprc": 0.17205323412219967,
+    "localization": 0.008651566005133659,
+    "topk_50": 0.08,
     "topk_100": 0.05,
-    "entropy": 5.004406729083138
+    "entropy": 4.9720617984649955
   }
 }

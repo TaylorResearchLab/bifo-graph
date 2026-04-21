@@ -1,8 +1,13 @@
 {
   "parameters": {
     "score_variant": "degree_norm",
-    "n_seeds": 30,
-    "n_chd_reference": 11
+    "n_seeds_provided": 30,
+    "n_seeds_effective": 30,
+    "n_chd_reference": 11,
+    "n_permutations": 0,
+    "null_type": "membership-rewiring",
+    "ppr_alpha": 0.5,
+    "random_seed": 42
   },
   "metrics": {
     "n_pathways_scored": 550.0,
@@ -37,7 +42,17 @@
       "degree": 44,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M607",
@@ -54,7 +69,17 @@
       "degree": 18,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M616",
@@ -71,7 +96,17 @@
       "degree": 14,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M618",
@@ -88,7 +123,17 @@
       "degree": 18,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39571",
@@ -105,7 +150,17 @@
       "degree": 16,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M594",
@@ -122,7 +177,17 @@
       "degree": 21,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M592",
@@ -139,7 +204,17 @@
       "degree": 8,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27880",
@@ -156,7 +231,17 @@
       "degree": 11,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M29616",
@@ -173,7 +258,17 @@
       "degree": 12,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M604",
@@ -190,7 +285,17 @@
       "degree": 11,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M614",
@@ -207,7 +312,17 @@
       "degree": 9,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27879",
@@ -224,7 +339,17 @@
       "degree": 8,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M611",
@@ -241,7 +366,17 @@
       "degree": 8,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27881",
@@ -258,7 +393,17 @@
       "degree": 10,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39540",
@@ -275,7 +420,17 @@
       "degree": 23,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39545",
@@ -292,7 +447,17 @@
       "degree": 15,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M2207",
@@ -309,7 +474,17 @@
       "degree": 12,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39739",
@@ -326,7 +501,17 @@
       "degree": 57,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27547",
@@ -343,7 +528,17 @@
       "degree": 104,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M17",
@@ -360,7 +555,17 @@
       "degree": 18,
       "degree_flag": false,
       "in_chd_set": true,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27784",
@@ -377,7 +582,17 @@
       "degree": 22,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M734",
@@ -394,7 +609,17 @@
       "degree": 233,
       "degree_flag": true,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M5825",
@@ -411,7 +636,17 @@
       "degree": 59,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27785",
@@ -428,7 +663,17 @@
       "degree": 36,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39647",
@@ -445,7 +690,17 @@
       "degree": 10,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "C1158770",
@@ -462,7 +717,17 @@
       "degree": 251,
       "degree_flag": true,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M288",
@@ -479,7 +744,17 @@
       "degree": 16,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27786",
@@ -496,7 +771,17 @@
       "degree": 36,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M916",
@@ -513,7 +798,17 @@
       "degree": 24,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M6616",
@@ -530,7 +825,17 @@
       "degree": 188,
       "degree_flag": true,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39448",
@@ -547,7 +852,17 @@
       "degree": 38,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M15973",
@@ -564,7 +879,17 @@
       "degree": 35,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39869",
@@ -581,7 +906,17 @@
       "degree": 8,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M2307",
@@ -598,7 +933,17 @@
       "degree": 16,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27862",
@@ -615,7 +960,17 @@
       "degree": 13,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39852",
@@ -632,7 +987,17 @@
       "degree": 51,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27867",
@@ -649,7 +1014,17 @@
       "degree": 77,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39506",
@@ -666,7 +1041,17 @@
       "degree": 12,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27454",
@@ -683,7 +1068,17 @@
       "degree": 39,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27565",
@@ -700,7 +1095,17 @@
       "degree": 91,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M2148",
@@ -717,7 +1122,17 @@
       "degree": 69,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M1479",
@@ -734,7 +1149,17 @@
       "degree": 9,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M18090",
@@ -751,7 +1176,17 @@
       "degree": 213,
       "degree_flag": true,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M5485",
@@ -768,7 +1203,17 @@
       "degree": 85,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M27303",
@@ -785,7 +1230,17 @@
       "degree": 30,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M34025",
@@ -802,7 +1257,17 @@
       "degree": 32,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M11840",
@@ -819,7 +1284,17 @@
       "degree": 74,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M70",
@@ -836,7 +1311,17 @@
       "degree": 11,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M39389",
@@ -853,7 +1338,17 @@
       "degree": 8,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     },
     {
       "concept_id": "MSIGDB:M14242",
@@ -870,7 +1365,17 @@
       "degree": 32,
       "degree_flag": false,
       "in_chd_set": false,
-      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070"
+      "contributing_seeds": "C1334889|C1417767|C1415725|C1424142|C1414070",
+      "empirical_p": null,
+      "empirical_q": null,
+      "null_mean": null,
+      "null_sd": null,
+      "null_z": null,
+      "member_mean_p": null,
+      "member_mean_q": null,
+      "member_mean_null_mean": null,
+      "member_mean_null_sd": null,
+      "member_mean_null_z": null
     }
   ]
 }

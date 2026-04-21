@@ -21,12 +21,12 @@
     "total_edges": 174352,
     "total_concept_edges": 174352,
     "concept_edges_with_resolved_endpoints": 142138,
-    "kept_edges": 104342,
-    "dropped_edges": 70010,
+    "kept_edges": 105192,
+    "dropped_edges": 69160,
     "dropped_non_flow": 348,
-    "dropped_unmapped_predicate": 37448,
+    "dropped_unmapped_predicate": 36598,
     "dropped_unresolved_entity": 32214,
-    "level2_edge_coverage": 0.5984559970634119
+    "level2_edge_coverage": 0.6033311920712122
   },
   "concept_fallthrough_count": 15626,
   "concept_fallthrough_preview": [
@@ -133,13 +133,12 @@
   ],
   "graph_stats": {
     "raw_concept_edges": 174352,
-    "conditioned_propagating_edges": 94309,
+    "conditioned_propagating_edges": 57005,
     "flow_class_distribution": {
-      "Pathway Contribution": 80200,
+      "Pathway Contribution": 43698,
       "Translation": 46,
       "Signal Transduction": 5786,
       "Signal Termination": 484,
-      "Spatial constraint": 802,
       "Transcription": 1573,
       "Perturbational Effect": 5392,
       "Genetic Regulatory Modulation": 20,
@@ -157,25 +156,25 @@
   "metadata_filtered": {
     "auroc": 0.9997102960774089,
     "auprc": 0.22147852147852148,
-    "localization": 0.018275446354078094,
+    "localization": 0.0182754463540781,
     "topk_50": 0.1,
     "topk_100": 0.05,
-    "entropy": 5.648174741741462
+    "entropy": 5.648174741741464
   },
   "conditioned": {
-    "auroc": 0.9996581493713425,
-    "auprc": 0.19234686881745705,
-    "localization": 0.011799591411718054,
+    "auroc": 0.9996639434497945,
+    "auprc": 0.19472782119840942,
+    "localization": 0.011742254885938474,
     "topk_50": 0.1,
     "topk_100": 0.05,
-    "entropy": 5.221980220779695
+    "entropy": 4.934384115998656
   },
   "random_sparsification_control": {
-    "auroc": 0.9997045019989571,
+    "auroc": 0.999704501998957,
     "auprc": 0.21731185481185483,
-    "localization": 0.012900008069949905,
+    "localization": 0.010477190783083358,
     "topk_50": 0.1,
     "topk_100": 0.05,
-    "entropy": 5.590078504081738
+    "entropy": 5.4558250652278995
   }
 }

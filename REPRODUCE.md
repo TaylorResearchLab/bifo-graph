@@ -243,7 +243,7 @@ python3 pipeline/bifo_conditioning.py \
 
 **Frozen outputs:** `results/kf_chd/`
 
-**Expected:** 2,115,572 propagating edges (43.9% of concept edges), 1,276/1,276 seeds resolved
+**Expected:** 2,490,510 kept edges (44.1% of concept edges), 1,276/1,276 seeds resolved. Bridge edges: 1,026,968 / 2,482,752 propagating = 41.4%
 
 ### Step 2.2 — Pathway Scoring (Standard Universe)
 
@@ -256,20 +256,21 @@ python3 pipeline/score_pathways.py \
   --scores-raw        results/kf_chd/results_scores_raw.npy \
   --node-index        results/kf_chd/results_node_index.json \
   --seed-nodes        data/cohorts/chd/kf_chd_seed_cuis.txt \
-  --chd-pathways      data/cohorts/chd/kf_chd_ncc_reference.txt \
+  --chd-pathways      data/cohorts/chd/kf_chd_cilia_reference.txt \
+  --allowed-name-prefixes HALLMARK_ REACTOME_ WP_ KEGG_ BIOCARTA_ PID_ \
   --min-members 8 --max-members 300 \
   --n-permutations 1000 \
   --null-type membership-rewiring \
-  --n-cores 192 \
-  --out-csv  results/kf_chd/pathway_scores_null.csv \
-  --out-json results/kf_chd/pathway_metrics_null.json
+  --n-cores 128 \
+  --out-csv  results/kf_chd/pathway_scores_standard.csv \
+  --out-json results/kf_chd/pathway_metrics_standard.json
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 1, P@10=0.20 (50× background), rank improvement=+303
+**Expected (scoring):** WP_CILIOPATHIES rank 43/2,130 (top 2%), degree_norm=8.509e-06; WP_JOUBERT_SYNDROME rank 34. Pathway universe: 2,130 (CGP sets excluded via --allowed-name-prefixes).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES rewiring null_z=-1.9, q=1.0 (miscalibrated — KF-CHD graph is 93.9% bridge edges; see Methods §8.4)
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=48.71, empirical q=0.006 (valid — bridge edges 41.4% of propagating graph; see Methods §8.4)
 
-**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=3.45, empirical p=0.000999 (floor, 1000 perms)
+**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=1.39, empirical p=0.057 (not significant at member level; signal concentrated at pathway node)
 
 > Note: `score_pathways.py` runs both nulls in a single invocation when `--null-type membership-rewiring` is specified. Output columns: `empirical_q`, `null_z` (pathway-node rewiring null); `member_mean_q`, `member_mean_null_z` (member-level null).
 
@@ -282,14 +283,14 @@ python3 pipeline/baseline_enrichment.py \
   --scores-raw    results/kf_chd/results_scores_raw.npy \
   --scores-cond   results/kf_chd/results_scores_cond.npy \
   --bifo-scores   results/kf_chd/pathway_scores_standard.csv \
-  --chd-pathways  data/cohorts/chd/kf_chd_ncc_reference.txt \
+  --chd-pathways  data/cohorts/chd/kf_chd_cilia_reference.txt \
   --seed-nodes    data/cohorts/chd/kf_chd_seed_cuis.txt \
   --small-universe \
   --out-csv  results/kf_chd/baseline_comparison.csv \
   --out-json results/kf_chd/baseline_comparison.json
 ```
 
-**Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=9.68×10⁻³¹); Fisher P@10=0.30, AP=0.159; raw PPR GSEA rank 3,325; cond PPR GSEA rank 4,414; neighborhood Fisher P@10=0.0
+**Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=4.53×10⁻³¹, overlap=61/170); Fisher P@10=0.20, AP=0.130; BIFO P@10=0.00, AP=0.012, mean_ref_rank=889; raw PPR GSEA rank 1,994; cond PPR GSEA rank 456; neighborhood Fisher P@10=0.0
 
 ---
 
@@ -313,7 +314,7 @@ python3 pipeline/bifo_conditioning.py \
   --out-json results/kf_nbl/results.json
 ```
 
-**Expected:** 2,647,055 propagating edges (45.1% of concept edges), 1,395/1,406 seeds resolved
+**Expected:** 2,654,867 kept edges (45.3% of concept edges), 1,395/1,406 seeds resolved
 
 ### Step 3.2 — Pathway Scoring
 
@@ -326,20 +327,21 @@ python3 pipeline/score_pathways.py \
   --scores-raw        results/kf_nbl/results_scores_raw.npy \
   --node-index        results/kf_nbl/results_node_index.json \
   --seed-nodes        data/cohorts/nbl/kf_nbl_seed_cuis.txt \
-  --chd-pathways      data/cohorts/nbl/kf_nbl_ncc_reference.txt \
+  --chd-pathways      data/cohorts/nbl/kf_nbl_cilia_reference.txt \
+  --allowed-name-prefixes HALLMARK_ REACTOME_ WP_ KEGG_ BIOCARTA_ PID_ \
   --min-members 8 --max-members 300 \
   --n-permutations 1000 \
   --null-type membership-rewiring \
-  --n-cores  192 \
-  --out-csv  results/kf_nbl/pathway_scores_null.csv \
-  --out-json results/kf_nbl/pathway_metrics_null.json
+  --n-cores 128 \
+  --out-csv  results/kf_nbl/pathway_scores_standard.csv \
+  --out-json results/kf_nbl/pathway_metrics_standard.json
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 1 (independent replication of KF-CHD finding); BIFO P@10=0.10, AP=0.090, rank improvement=+193; Fisher P@10=0.20, AP=0.117
+**Expected (scoring):** WP_CILIOPATHIES rank 3/2,196, degree_norm=4.241e-06, null_z=18.95, q=0.012; WP_JOUBERT_SYNDROME rank 17. Pathway universe: 2,196 (CGP sets excluded).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=31.3, empirical q=0.009
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=18.95, empirical q=0.012 (valid)
 
-**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=2.41, empirical p=0.004
+**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=2.43, empirical p=0.003 (significant — signal distributed across member genes in NBL)
 
 ### Step 3.3 — Baseline Enrichment
 
@@ -350,14 +352,14 @@ python3 pipeline/baseline_enrichment.py \
   --scores-raw    results/kf_nbl/results_scores_raw.npy \
   --scores-cond   results/kf_nbl/results_scores_cond.npy \
   --bifo-scores   results/kf_nbl/pathway_scores_standard.csv \
-  --chd-pathways  data/cohorts/nbl/kf_nbl_ncc_reference.txt \
+  --chd-pathways  data/cohorts/nbl/kf_nbl_cilia_reference.txt \
   --seed-nodes    data/cohorts/nbl/kf_nbl_seed_cuis.txt \
   --small-universe \
   --out-csv  results/kf_nbl/baseline_comparison.csv \
   --out-json results/kf_nbl/baseline_comparison.json
 ```
 
-**Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=8.13×10⁻³²); Fisher P@10=0.20, AP=0.122; raw PPR GSEA mean ref rank ~2,752; convergent with KF-CHD
+**Expected:** WP_CILIOPATHIES rank 1 under seed Fisher (corrected, BH p=3.85×10⁻³²); Fisher P@10=0.20, AP=0.099; BIFO P@10=0.10, AP=0.044, mean_ref_rank=550; raw PPR GSEA rank 1,707; cond PPR GSEA rank 1,543; convergent with KF-CHD
 
 ---
 

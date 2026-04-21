@@ -26,7 +26,6 @@ bifo-graph/
 │   ├── kf_resampling.py         Bootstrap resampling for KF cohort analyses
 │   ├── seed_cui_lookup.py       Map gene symbols / HGNC IDs to UMLS CUIs
 │   ├── generate_export_cypher.py  Generate Neo4j export Cypher from seed list
-│   ├── build_ncc_membership_edges.py  Build NCC/cilia pathway membership edges
 │   ├── build_cilia_reference.py  Build cilia reference pathway set
 │   └── clean_cypher_output.py   Clean cypher-shell CSV output artifacts
 │
@@ -36,7 +35,6 @@ bifo-graph/
 │   ├── run_kf_chd_export.sh     Stage 1: Neo4j export — KF-CHD cohort
 │   ├── run_kf_nbl_export.sh     Stage 1: Neo4j export — KF-NBL cohort
 │   ├── clean_files.sh           Stage 2.1: Clean cypher-shell output
-│   ├── build_ncc_edges.sh       Stage 2.2: Build NCC/cilia membership edges
 │   ├── merge_files.sh           Stage 2.3: Merge edge CSV files
 │   ├── run_seed_lookup.sh       Stage 2.4: Map gene symbols to CUIs
 │   ├── run_conditioning.sh      Stage 3: BIFO conditioning + PPR propagation
@@ -77,7 +75,7 @@ bifo-graph/
 │       │   ├── kf_chd_seeds.txt            Original unfiltered seed list
 │       │   ├── kf_chd_seed_cuis.txt        CUI-resolved seed list (pipeline input)
 │       │   ├── kf_chd_seed_nodes.csv.zip   Full seed node metadata
-│       │   └── kf_chd_ncc_reference.txt    NCC cilia pathway reference set
+│       │   └── kf_chd_cilia_reference.txt  MSigDB cilia pathway reference set (17 CUIs)
 │       │
 │       └── nbl/                 KF-NBL variant gene seeds and references
 │           ├── kf_nbl_seeds_maf001.txt     Primary seeds (MAF≤0.001, n≥1; 1,406 genes)
@@ -86,7 +84,7 @@ bifo-graph/
 │           ├── kf_nbl_seeds_maf01.txt      MAF≤0.01 seeds (broader filter)
 │           ├── kf_nbl_seeds.txt            Original unfiltered seed list
 │           ├── kf_nbl_seed_cuis.txt        CUI-resolved seed list (pipeline input)
-│           └── kf_nbl_ncc_reference.txt    NCC cilia pathway reference set
+│           └── kf_nbl_cilia_reference.txt  MSigDB cilia pathway reference set (17 CUIs)
 │
 ├── examples/
 │   └── minimal_test/            Self-contained 15-gene CHD end-to-end test
@@ -102,9 +100,7 @@ bifo-graph/
 │
 ├── data/
 │   ├── benchmark/               (existing — see above)
-│   ├── ncc_cilia_pathways/      NCC and cilia gene set files (19 curated sets)
 │   └── cohorts/
-│       ├── kf_cilia_reference_msigdb.txt  Cross-cohort cilia pathway reference
 │       ├── README.md            Cohort data documentation
 │       ├── chd/                 (existing — see above)
 │       └── nbl/
@@ -114,7 +110,7 @@ bifo-graph/
 │           ├── kf_nbl_seeds_maf01.txt      MAF≤0.01 seeds (broader filter)
 │           ├── kf_nbl_seeds.txt            Original unfiltered seed list
 │           ├── kf_nbl_seed_cuis.txt        CUI-resolved seed list (pipeline input)
-│           └── kf_nbl_ncc_reference.txt    NCC cilia pathway reference set
+│           └── kf_nbl_cilia_reference.txt  MSigDB cilia pathway reference set (17 CUIs)
 │
 └── results/                     Pre-computed results (shipped with repo)
     ├── chd_benchmark/
@@ -166,11 +162,9 @@ bifo-graph/
     │   ├── nodes_clean_noncc.csv.gz        Node table (pipeline input)
     │   ├── edges_all_noncc.csv.gz          Edge table (pipeline input)
     │   ├── pathway_scores_standard.csv     Pathway scores (full universe)
-    │   ├── pathway_scores_ncc.csv          Pathway scores (NCC/cilia universe)
-    │   ├── pathway_scores_null.csv         Pathway scores with empirical null results
+        │   ├── pathway_scores_null.csv         Pathway scores with empirical null results
     │   ├── pathway_metrics_standard.json   Pathway scoring metrics
-    │   ├── pathway_metrics_ncc.json        NCC/cilia scoring metrics
-    │   ├── baseline_comparison.csv         Baseline enrichment comparison
+        │   ├── baseline_comparison.csv         Baseline enrichment comparison
     │   ├── baseline_comparison.json
     │   ├── resampling_summary.json         Bootstrap resampling summary
     │   └── resampling_results.csv          Per-bootstrap resampling results
@@ -185,11 +179,9 @@ bifo-graph/
         ├── nodes_clean_noncc.csv.gz        Node table (pipeline input)
         ├── edges_all_noncc.csv.gz          Edge table (pipeline input)
         ├── pathway_scores_standard.csv     Pathway scores (full universe)
-        ├── pathway_scores_ncc.csv          Pathway scores (NCC/cilia universe)
-        ├── pathway_scores_null.csv         Pathway scores with empirical null results
+                ├── pathway_scores_null.csv         Pathway scores with empirical null results
         ├── pathway_metrics_standard.json   Pathway scoring metrics
-        ├── pathway_metrics_ncc.json        NCC/cilia scoring metrics
-        ├── baseline_comparison.csv         Baseline enrichment comparison
+                ├── baseline_comparison.csv         Baseline enrichment comparison
         ├── baseline_comparison.json
         ├── resampling_summary.json         Bootstrap resampling summary
         └── resampling_results.csv          Per-bootstrap resampling results
@@ -320,7 +312,6 @@ bash run_test.sh
 |-------|--------|-------|--------|
 | 1 | `run_kf_{cohort}_export.sh` | Neo4j DDKG instance | `edges_raw.csv`, `nodes.csv`, `pathway_membership_edges.csv` |
 | 2.1 | `clean_files.sh` | Raw cypher-shell CSVs | Cleaned CSVs |
-| 2.2 | `build_ncc_edges.sh` | NCC gene sets | `ncc_membership_edges.csv` |
 | 2.3 | `merge_files.sh` | Edge CSVs | `edges_merged.csv` |
 | 2.4 | `run_seed_lookup.sh` | Gene symbol list | `seed_cuis.txt` |
 | 3 | `run_conditioning.sh` | `edges_merged.csv`, `nodes.csv`, seeds | `results_scores_*.npy`, `results_kept_edges.csv` |
@@ -335,7 +326,7 @@ bash run_test.sh
 `score_pathways.py` implements two complementary empirical null frameworks:
 
 **Pathway-node null (membership rewiring)**
-Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-NBL: 46.3% bridge); miscalibrated when bridge edges dominate the propagating graph (KF-CHD: 93.9% bridge). Percentages derived from propagating edge counts in each conditioned graph.
+Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-CHD: 41.4% bridge; KF-NBL: similar). Under the unidirectional pipeline all three analyses have well-calibrated rewiring nulls. Percentages derived from propagating edge counts in each conditioned graph.
 
 **Member-level null (stratified gene set permutation)**
 Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction than the pathway-node rewiring null, and empirically stable across seed sizes. Tests whether propagated signal concentrates within pathway member genes, not whether signal reaches the pathway node itself.
@@ -392,7 +383,7 @@ The YAML file encodes the BIFO flow class definitions (v0.7.1):
 - **96** explicit non-flow (excluded) predicate designations
 - **46** observational edge definitions
 - **5** classification tiers: `mechanistic`, `weak_mechanistic_or_observational`,
-  `observational`, `contextual_constraint`, `nonpropagating_context`
+  `observational`, `contextual_constraint`, `nonpropagating_context` (pathway→gene direction excluded per BIFO spec v0.02)
 
 This file encodes the operational instantiation of BIFO for the DDKG and is
 the primary artifact controlling propagation behavior in this analysis.
@@ -439,7 +430,7 @@ Figure source scripts are available in the companion figure repository
 - Pre-computed KF-CHD and KF-NBL conditioning results, score vectors, pathway scores, and null model results
 - Exhaustive CHD resampling summary (3,003 splits) and KF cohort bootstrap resampling summaries
 - Benchmark and cohort null model scored outputs (`test_structural_null.csv`, `pathway_scores_null.csv`)
-- NCC and cilia curated gene set files (`data/ncc_cilia_pathways/`)
+- NCC gene set files removed (formerly `data/ncc_cilia_pathways/`; replaced by `data/cohorts/*/kf_*_cilia_reference.txt`)
 
 **Requires DDKG access (not shipped):**
 - Full KF-CHD and KF-NBL graph exports (815K–880K nodes, 5–6M edges)

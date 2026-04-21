@@ -260,7 +260,7 @@ python pipeline/baseline_enrichment.py \
 # Expected outputs after steps 1-2:
 #   pathway_scores_standard.csv — 550 ranked pathways
 #   BRUNEAU_SEPTATION_VENTRICULAR rank 1
-#   P@10 = 0.70, mean rank improvement = +99.1
+#   P@10 = 0.70, mean rank improvement = +125.4
 
 # 4. Run exhaustive resampling (3,003 splits)
 python pipeline/chd_resampling_exhaustive.py \
@@ -326,7 +326,7 @@ bash run_test.sh
 `score_pathways.py` implements two complementary empirical null frameworks:
 
 **Pathway-node null (membership rewiring)**
-Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 6.2% bridge; KF-CHD: 41.4% bridge; KF-NBL: similar). Under the unidirectional pipeline all three analyses have well-calibrated rewiring nulls. Percentages derived from propagating edge counts in each conditioned graph.
+Degree-preserving rewiring of gene→pathway bridge edges with PPR reruns. Tests whether a pathway's concept node receives more propagated mass than expected under randomized membership. Calibration depends on graph composition: valid when non-bridge edges provide sufficient routing constraint (benchmark: 85.8% bridge; KF-CHD: 41.4% bridge; KF-NBL: similar). Under the unidirectional pipeline all three analyses have well-calibrated rewiring nulls. Percentages derived from propagating edge counts in each conditioned graph.
 
 **Member-level null (stratified gene set permutation)**
 Matches genes on structural features only (conditioned graph degree and pathway membership count, both log-binned) and tests whether pathway member genes carry disproportionate propagated signal relative to matched random gene sets. Operates on the fixed propagated score vector — no PPR reruns required. Less sensitive to bridge edge fraction than the pathway-node rewiring null, and empirically stable across seed sizes. Tests whether propagated signal concentrates within pathway member genes, not whether signal reaches the pathway node itself.
@@ -430,7 +430,7 @@ Figure source scripts are available in the companion figure repository
 - Pre-computed KF-CHD and KF-NBL conditioning results, score vectors, pathway scores, and null model results
 - Exhaustive CHD resampling summary (3,003 splits) and KF cohort bootstrap resampling summaries
 - Benchmark and cohort null model scored outputs (`test_structural_null.csv`, `pathway_scores_null.csv`)
-- NCC gene set files removed (formerly `data/ncc_cilia_pathways/`; replaced by `data/cohorts/*/kf_*_cilia_reference.txt`)
+
 
 **Requires DDKG access (not shipped):**
 - Full KF-CHD and KF-NBL graph exports (815K–880K nodes, 5–6M edges)

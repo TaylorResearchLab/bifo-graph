@@ -170,53 +170,67 @@ ORDER BY node_id;
 
 
 // ---------------------------------------------------------------------------
-// QUERY 5 — Pathway membership edges → save as: kf_chd_pathway_membership_edges.csv
-// Columns: source, target, predicate
 // ---------------------------------------------------------------------------
-WITH [
-    "ROS1 gene", "SLC12A3 gene", "VPS11 gene", "DNAH5 gene", "HPS3 gene",
-    "BRCA2 gene", "CC2D2A gene", "SPG11 gene", "GPI gene", "DUOX2 gene",
-    "ACADVL gene", "ABCA13 gene", "ASPM gene", "CEP290 gene", "NOTCH2 gene",
-    "FANCA gene", "AGL gene", "CACNA1S gene", "KIAA0586 gene", "FANCI gene",
-    "GBE1 gene", "DZIP1L gene", "LRBA gene", "OTOF gene", "TTI1 gene",
-    "SYNE1 gene", "ABCA7 gene", "CLCN3 gene", "AAAS gene", "PDZRN3 gene",
-    "PKD1L1 gene", "TRNT1 gene", "PDHA2 gene", "ACE gene", "SLC26A4 gene",
-    "LDLR gene", "LAMA5 gene", "MEI1 gene", "SLCO1B1 gene", "CUBN gene",
-    "NEB gene", "THRB gene", "TMC1 gene", "DHCR7 gene", "CD36 gene",
-    "DMBX1 gene", "PTPRQ gene", "CERKL gene", "SLC17A9 gene", "PIK3R5 gene",
-    "ARSA gene", "MAP3K6 gene", "SLC24A1 gene", "ADCY10 gene", "ATP7B gene",
-    "DRD4 gene"
-] AS gene_names
-
-MATCH (c:Concept)-[:PREF_TERM]->(t:Term)
-WHERE t.name IN gene_names
-WITH collect(DISTINCT c) AS seeds
-
-UNWIND seeds AS seed
-OPTIONAL MATCH (seed)-[r1]-(neighbor:Concept)
-WHERE type(r1) <> 'CODE'
-  AND type(r1) <> 'STY'
-  AND type(r1) <> 'ISA'
-  AND type(r1) <> 'PREF_TERM'
-WITH collect(DISTINCT seed) + collect(DISTINCT neighbor) AS all_genes
-
-UNWIND all_genes AS gene
-MATCH (gene)-[r]-(pathway:Concept)
-WHERE type(r) IN [
-    'pathway_associated_with_gene',
-    'inverse_pathway_associated_with_gene',
-    'has_signature_gene',
-    'inverse_has_signature_gene',
-    'process_involves_gene',
-    'gene_plays_role_in_process'
-]
+// QUERY 5 — Full MSIGDB pathway membership edges → save as: kf_chd_pathway_membership_edges.csv
+// Columns: source, target, predicate
+//
+// NOTE: This query is unconditional — it exports ALL MSIGDB pathway→gene
+// membership edges from the DDKG regardless of whether genes appear in the
+// 1-hop seed neighborhood. This ensures complete pathway membership for
+// degree_norm scoring and Fisher enrichment baselines.
+// Previous versions of this query used a seed-based traversal which produced
+// incomplete membership counts for pathways with members not adjacent to seeds.
+// ---------------------------------------------------------------------------
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (pw)-[:pathway_associated_with_gene]->(gene:Concept)
 RETURN DISTINCT
-    gene.CUI    AS source,
-    pathway.CUI AS target,
-    type(r)     AS predicate
-ORDER BY source, predicate, target;
+    pw.CUI   AS source,
+    gene.CUI AS target,
+    'pathway_associated_with_gene' AS predicate
+ORDER BY source, target;
 
 
+// ---------------------------------------------------------------------------
+// QUERY 6 — Gene nodes for full MSIGDB membership → save as: kf_chd_pathway_member_nodes.csv
+// Columns: node_id, label, name, sab
+//
+// Exports node metadata for all genes that are MSIGDB pathway members.
+// These genes may not appear in the 1-hop seed neighborhood but are required
+// for entity resolution in bifo_conditioning.py when their membership edges
+// are present in the pathway_membership_edges file.
+// SAB priority matches Query 4: HGNC > NCBIGENE > MSIGDB > GO > MONDO > OMIM
+// ---------------------------------------------------------------------------
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (pw)-[:pathway_associated_with_gene]->(gene:Concept)
+WITH collect(DISTINCT gene) AS all_genes
+UNWIND all_genes AS c
+OPTIONAL MATCH (c)-[:CODE]->(code:Code)
+WITH c, code
+ORDER BY
+  CASE code.SAB
+    WHEN 'HGNC'     THEN 0
+    WHEN 'NCBIGENE' THEN 1
+    WHEN 'MSIGDB'   THEN 2
+    WHEN 'GO'       THEN 3
+    WHEN 'MONDO'    THEN 4
+    WHEN 'OMIM'     THEN 5
+    ELSE 99
+  END
+WITH c, collect(code)[0] AS best_code
+OPTIONAL MATCH (c)-[:PREF_TERM]->(t:Term)
+RETURN DISTINCT
+    c.CUI                              AS node_id,
+    'Concept'                          AS label,
+    coalesce(t.name, c.CUI)            AS name,
+    coalesce(best_code.SAB, 'UNKNOWN') AS sab
+ORDER BY node_id;
+
+
+// =============================================================================
 // =============================================================================
 // AFTER EXPORT — merge with pandas (not cat):
 //

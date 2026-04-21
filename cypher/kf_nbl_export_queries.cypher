@@ -194,59 +194,67 @@ ORDER BY node_id;
 
 
 // ---------------------------------------------------------------------------
-// QUERY 5 — Pathway membership edges → save as: kf_nbl_pathway_membership_edges.csv
-// Columns: source, target, predicate
 // ---------------------------------------------------------------------------
-WITH [
-    "MAP2K7 gene", "FLNA gene", "ATP1A3 gene", "GFM1 gene", "TAF4 gene",
-    "ABCB11 gene", "WNK1 gene", "LRP1 gene", "SMPD1 gene", "SLC7A9 gene",
-    "GALT gene", "SEC63 gene", "PC gene", "NSD1 gene", "PRMT1 gene",
-    "ENO3 gene", "ATRX gene", "KIAA1109 gene", "VWF gene", "SKIV2L gene",
-    "GSS gene", "BARD1 gene", "KCNT2 gene", "VCAN gene", "SHMT2 gene",
-    "PIEZO1 gene", "PCK1 gene", "FH gene", "FANCA gene", "PDE6B gene",
-    "CHRNE gene", "PAH gene", "SLC12A3 gene", "BLM gene", "ZSWIM6 gene",
-    "TYR gene", "ANO3 gene", "DYNC2H1 gene", "POU6F2 gene", "ARMC5 gene",
-    "STAG3 gene", "CDC45 gene", "ABCB6 gene", "PGD gene", "NCAPD3 gene",
-    "FSIP2 gene", "CLPP gene", "CFTR gene", "SEPSECS gene", "ATM gene",
-    "ULK1 gene", "HLA-DRB1 gene", "MAF gene", "DNAH5 gene", "SLC45A2 gene",
-    "ZFX gene", "COL7A1 gene", "DHCR24 gene", "DNAH9 gene", "GBE1 gene",
-    "SPG7 gene", "PLXND1 gene", "HPS3 gene", "AHCY gene", "TTC21B gene",
-    "RAD54B gene", "DUOXA2 gene", "ERCC2 gene", "GRM6 gene", "FREM1 gene",
-    "HK1 gene", "MED12 gene", "LONP1 gene", "G6PC1 gene", "NIN gene",
-    "ADGRV1 gene", "CHEK2 gene", "NUP205 gene", "OGDH gene", "WFS1 gene",
-    "IRF2BPL gene", "HNF1B gene", "ASPM gene", "VPS13B gene", "HSPA9 gene",
-    "NCOR1 gene", "MAT1A gene", "ABCA13 gene"
-] AS gene_names
-
-MATCH (c:Concept)-[:PREF_TERM]->(t:Term)
-WHERE t.name IN gene_names
-WITH collect(DISTINCT c) AS seeds
-
-UNWIND seeds AS seed
-OPTIONAL MATCH (seed)-[r1]-(neighbor:Concept)
-WHERE type(r1) <> 'CODE'
-  AND type(r1) <> 'STY'
-  AND type(r1) <> 'ISA'
-  AND type(r1) <> 'PREF_TERM'
-WITH collect(DISTINCT seed) + collect(DISTINCT neighbor) AS all_genes
-
-UNWIND all_genes AS gene
-MATCH (gene)-[r]-(pathway:Concept)
-WHERE type(r) IN [
-    'pathway_associated_with_gene',
-    'inverse_pathway_associated_with_gene',
-    'has_signature_gene',
-    'inverse_has_signature_gene',
-    'process_involves_gene',
-    'gene_plays_role_in_process'
-]
+// QUERY 5 — Full MSIGDB pathway membership edges → save as: kf_nbl_pathway_membership_edges.csv
+// Columns: source, target, predicate
+//
+// NOTE: This query is unconditional — it exports ALL MSIGDB pathway→gene
+// membership edges from the DDKG regardless of whether genes appear in the
+// 1-hop seed neighborhood. This ensures complete pathway membership for
+// degree_norm scoring and Fisher enrichment baselines.
+// Previous versions of this query used a seed-based traversal which produced
+// incomplete membership counts for pathways with members not adjacent to seeds.
+// ---------------------------------------------------------------------------
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (pw)-[:pathway_associated_with_gene]->(gene:Concept)
 RETURN DISTINCT
-    gene.CUI    AS source,
-    pathway.CUI AS target,
-    type(r)     AS predicate
-ORDER BY source, predicate, target;
+    pw.CUI   AS source,
+    gene.CUI AS target,
+    'pathway_associated_with_gene' AS predicate
+ORDER BY source, target;
 
 
+// ---------------------------------------------------------------------------
+// QUERY 6 — Gene nodes for full MSIGDB membership → save as: kf_nbl_pathway_member_nodes.csv
+// Columns: node_id, label, name, sab
+//
+// Exports node metadata for all genes that are MSIGDB pathway members.
+// These genes may not appear in the 1-hop seed neighborhood but are required
+// for entity resolution in bifo_conditioning.py when their membership edges
+// are present in the pathway_membership_edges file.
+// SAB priority matches Query 4: HGNC > NCBIGENE > MSIGDB > GO > MONDO > OMIM
+// ---------------------------------------------------------------------------
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (pw)-[:pathway_associated_with_gene]->(gene:Concept)
+WITH collect(DISTINCT gene) AS all_genes
+UNWIND all_genes AS c
+OPTIONAL MATCH (c)-[:CODE]->(code:Code)
+WITH c, code
+ORDER BY
+  CASE code.SAB
+    WHEN 'HGNC'     THEN 0
+    WHEN 'NCBIGENE' THEN 1
+    WHEN 'MSIGDB'   THEN 2
+    WHEN 'GO'       THEN 3
+    WHEN 'MONDO'    THEN 4
+    WHEN 'OMIM'     THEN 5
+    ELSE 99
+  END
+WITH c, collect(code)[0] AS best_code
+OPTIONAL MATCH (c)-[:PREF_TERM]->(t:Term)
+RETURN DISTINCT
+    c.CUI                              AS node_id,
+    'Concept'                          AS label,
+    coalesce(t.name, c.CUI)            AS name,
+    coalesce(best_code.SAB, 'UNKNOWN') AS sab
+ORDER BY node_id;
+
+
+// =============================================================================
 // =============================================================================
 // AFTER EXPORT — merge with pandas (not cat):
 //

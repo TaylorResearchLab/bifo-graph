@@ -96,6 +96,8 @@ python3 pipeline/score_pathways.py \
 
 ### Step 1.5 — Pathway Scoring with Empirical Null (Methods §8.4)
 
+The null model is run as part of Step 1.4 by adding `--n-permutations 1000 --null-type membership-rewiring`. The null results are written to `pathway_scores_full.csv` alongside the scoring results. To reproduce the null results in isolation:
+
 ```bash
 python3 pipeline/score_pathways.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
@@ -103,15 +105,15 @@ python3 pipeline/score_pathways.py \
   --edges-conditioned results/chd_benchmark/chd_kept_edges.csv \
   --scores-cond       results/chd_benchmark/results_full_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_full_scores_raw.npy \
-  --node-index        results/chd_benchmark/results_node_index.json \
+  --node-index        results/chd_benchmark/results_full_node_index.json \
   --seed-nodes        data/benchmark/chd_seed_nodes.txt \
   --chd-pathways      data/benchmark/chd_pathway_reference.txt \
   --min-members 8 --max-members 300 \
   --n-permutations 1000 \
   --null-type membership-rewiring \
   --n-cores 120 \
-  --out-csv  results/chd_benchmark/test_structural_null.csv \
-  --out-json results/chd_benchmark/test_structural_null.json
+  --out-csv  results/chd_benchmark/pathway_scores_full.csv \
+  --out-json results/chd_benchmark/pathway_metrics_full.json
 ```
 
 **Expected (pathway-node rewiring null):** 16/550 pathways significant at q<0.05; BRUNEAU q=0.034 null_z=15.6
@@ -433,25 +435,25 @@ print(f'  Splits: {r[\"n_splits_total\"]} (expected 3,003)')
 print(f'  P@10>=0.30: {rob[\"bifo_p10_ge_0.3\"]}/3003 = {rob[\"bifo_p10_ge_0.3\"]/3003*100:.1f}% (expected 94.4%)')
 print(f'  P@10>=0.50: {rob[\"bifo_p10_ge_0.5\"]}/3003 = {rob[\"bifo_p10_ge_0.5\"]/3003*100:.1f}% (expected 43.8%)')
 print(f'  Positive rank imp: {rob[\"rank_imp_positive\"]}/3003 (expected 3003)')
-print(f'  Median P@10: {mets[\"bifo_p10\"][\"median\"]:.2f} (expected 0.50)')
+print(f'  Median P@10: {mets[\"bifo_p10\"][\"median\"]:.2f} (expected 0.40)')
 print(f'  AP range: {mets[\"bifo_ap\"][\"min\"]:.3f}-{mets[\"bifo_ap\"][\"max\"]:.3f} (expected 0.136-0.448)')
 
 print()
-print('=== NULL MODEL: Benchmark (from benchmark_null_scores.csv) ===')
-df = pd.read_csv('results/chd_benchmark/test_structural_null.csv')
+print('=== NULL MODEL: Benchmark (from pathway_scores_full.csv) ===')
+df = pd.read_csv('results/chd_benchmark/pathway_scores_full.csv')
 df = df.sort_values('degree_norm', ascending=False)
 sig = (df.empirical_q < 0.05).sum()
 sig_mm = (df.member_mean_q < 0.05).sum()
-bruneau = df[df.name.str.contains('BRUNEAU')].iloc[0]
+bruneau = df[df.name == 'BRUNEAU_SEPTATION_VENTRICULAR'].iloc[0]
 print(f'  Rewiring null sig q<0.05: {sig} (expected 16)')
 print(f'  BRUNEAU rewiring null_z: {bruneau.null_z:.1f} (expected 15.6)')
-print(f'  BRUNEAU q: {bruneau.empirical_q:.3f} (expected 0.017)')
+print(f'  BRUNEAU q: {bruneau.empirical_q:.3f} (expected 0.034)')
 print(f'  Member null sig q<0.05: {sig_mm} (expected 17)')
-print(f'  BRUNEAU member null_z: {bruneau.member_mean_null_z:.1f} (expected 10.6)')
-print(f'  BRUNEAU member q: {bruneau.member_mean_q:.3f} (expected 0.037)')
+print(f'  BRUNEAU member null_z: {bruneau.member_mean_null_z:.1f} (expected 10.7)')
+print(f'  BRUNEAU member q: {bruneau.member_mean_q:.3f} (expected 0.032)')
 
-wph = df[df.name.str.contains('WP_HEART_DEVELOPMENT')].iloc[0]
-wpc = df[df.name.str.contains('WP_CARDIAC_PROGENITOR')].iloc[0]
+wph = df[df.name == 'WP_HEART_DEVELOPMENT'].iloc[0]
+wpc = df[df.name == 'WP_CARDIAC_PROGENITOR_DIFFERENTIATION'].iloc[0]
 print(f'  WP_HEART null_z: {wph.null_z:.1f} (expected 16.3)')
 print(f'  WP_CARDIAC_PROGENITOR null_z: {wpc.null_z:.1f} (expected 12.3)')
 

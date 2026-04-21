@@ -1091,12 +1091,17 @@ edge_resolution:
     has_signature_gene:
       flow: Pathway Contribution
       direction: target_to_source   # PW/C has signature G
+      classification: nonpropagating_context  # PW→G excluded from PPR; signal flows gene→pathway only
+
+    inverse_has_signature_gene:
+      flow: Pathway Contribution
+      direction: source_to_target   # G → PW (Hallmark membership)
       classification: weak_mechanistic_or_observational
 
     pathway_associated_with_gene:
       flow: Pathway Contribution
       direction: target_to_source   # PW → G
-      classification: weak_mechanistic_or_observational
+      classification: nonpropagating_context  # PW→G excluded from PPR; signal flows gene→pathway only
 
     inverse_pathway_associated_with_gene:
       flow: Pathway Contribution

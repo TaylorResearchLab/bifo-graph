@@ -98,20 +98,6 @@ bifo-graph/
 ├── REPRODUCE.md                 Exact commands to reproduce all manuscript results
 ├── requirements.txt             Python dependencies
 │
-├── data/
-│   ├── benchmark/               (existing — see above)
-│   └── cohorts/
-│       ├── README.md            Cohort data documentation
-│       ├── chd/                 (existing — see above)
-│       └── nbl/
-│           ├── kf_nbl_seeds_maf001.txt     Primary seeds (MAF≤0.001, n≥1; 1,406 genes)
-│           ├── kf_nbl_seeds_maf001_n2.txt  Carrier-filtered seeds (n≥2; 401 genes)
-│           ├── kf_nbl_seeds_maf001_n3.txt  Carrier-filtered seeds (n≥3; 147 genes)
-│           ├── kf_nbl_seeds_maf01.txt      MAF≤0.01 seeds (broader filter)
-│           ├── kf_nbl_seeds.txt            Original unfiltered seed list
-│           ├── kf_nbl_seed_cuis.txt        CUI-resolved seed list (pipeline input)
-│           └── kf_nbl_cilia_reference.txt  MSigDB cilia pathway reference set (17 CUIs)
-│
 └── results/                     Pre-computed results (shipped with repo)
     ├── chd_benchmark/
     │   ├── results_full.json               Full-arm PPR results (gene-level metrics)
@@ -252,10 +238,11 @@ python pipeline/baseline_enrichment.py \
   --out-csv results/chd_benchmark/baseline_comparison.csv \
   --out-json results/chd_benchmark/baseline_comparison.json
 
-# Expected outputs after steps 1-2:
+# Expected outputs after steps 1-2 (sanity-check run, edges_raw only):
 #   pathway_scores_standard.csv — 550 ranked pathways
 #   BRUNEAU_SEPTATION_VENTRICULAR rank 1
-#   P@10 = 0.70, mean rank improvement = +125.4
+#   Note: P@10 and rank improvement will differ from paper values,
+#   which use edges_merged (raw + membership). See REPRODUCE.md.
 
 # 4. Run exhaustive resampling (3,003 splits)
 python pipeline/chd_resampling_exhaustive.py \

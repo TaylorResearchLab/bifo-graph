@@ -234,16 +234,11 @@ python pipeline/score_pathways.py \
   --out-csv results/chd_benchmark/pathway_scores_standard.csv \
   --out-json results/chd_benchmark/pathway_metrics_standard.json
 
-# Note on edge files:
-# - Full arm (primary analysis): conditioning uses edges_merged.csv
-#   (raw mechanistic edges + pathway membership edges combined)
-# - Ablation arm: conditioning uses edges_raw.csv only (no membership edges)
-# - Mechanistic arm: conditioning uses classification-filtered subset
-# The merged file (raw + membership) is also required by baseline_enrichment.py
-# for Fisher neighborhood expansion.
-#
-# The Quick Start above uses edges_raw.csv for simplicity; see REPRODUCE.md
-# for the exact merged-edge commands used in the paper.
+# Note on Quick Start vs paper-faithful run:
+# This Quick Start uses edges_raw.csv for simplicity and is a sanity-check
+# run only. The paper's primary full-arm analysis uses edges_merged.csv
+# (raw mechanistic edges + pathway membership edges combined). See REPRODUCE.md
+# for the exact commands used in the manuscript.
 
 # 3. Run baselines
 python pipeline/baseline_enrichment.py \

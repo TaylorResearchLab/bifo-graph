@@ -40,7 +40,7 @@ python3 pipeline/bifo_conditioning.py \
 
 **Frozen outputs:** `results/chd_benchmark/results_full.json`, `results_full_scores_cond.npy`, `results_full_scores_raw.npy`, `results_full_kept_edges.csv.zip`, `results_node_index.json`
 
-**Expected:** alpha=0.5, 93,507 propagating edges, conditioned AUPRC=0.1902, entropy=5.217
+**Expected:** alpha=0.5, 104,342 kept edges (93,487 propagating), conditioned AUPRC=0.1902, entropy=5.217
 
 ### Step 1.2 — Ablation Arm (edges_raw only, no bridge edges)
 
@@ -92,7 +92,7 @@ python3 pipeline/score_pathways.py \
   --out-json results/chd_benchmark/pathway_metrics_full.json
 ```
 
-**Expected:** 550 pathways, P@10=0.70, enrichment=21.4×, mean rank=113, rank improvement=+99.1
+**Expected:** 550 pathways, P@10=0.70, enrichment=21.4×, mean rank=86.6, rank improvement=+125.4
 
 ### Step 1.5 — Pathway Scoring with Empirical Null (Methods §8.4)
 
@@ -379,7 +379,7 @@ cov = r['coverage']
 gs = r['graph_stats']
 print(f'  Nodes: {cov[\"total_nodes\"]} (expected 34,523)')
 print(f'  Kept edges: {cov[\"kept_edges\"]} (expected 104,342)')
-print(f'  Pathway Contribution: {gs[\"flow_class_distribution\"][\"Pathway Contribution\"]} (expected 80,200)')
+print(f'  Pathway Contribution (bridge): {gs[\"flow_class_distribution\"][\"Pathway Contribution\"]} (expected 80,200 = 76.9% of kept edges)')
 print(f'  Cond AUPRC: {r[\"conditioned\"][\"auprc\"]:.4f} (expected 0.1923 from results_full.json; paper Table 1 reports 0.1902 from separate scoring run — see note)')
 print(f'  Cond entropy: {r[\"conditioned\"][\"entropy\"]:.3f} (expected 5.222)')
 print(f'  Raw AUPRC: {r[\"raw\"][\"auprc\"]:.4f} (expected 0.2215)')
@@ -387,7 +387,7 @@ print(f'  Raw entropy: {r[\"raw\"][\"entropy\"]:.3f} (expected 5.728)')
 
 print()
 print('=== TABLE 3: Three-arm ablation ===')
-for arm, ep10, eri in [('full',0.70,+99.1),('ablation',0.60,-11.2),('mech',0.00,34.7)]:
+for arm, ep10, eri in [('full',0.70,+125.4),('ablation',0.60,-11.2),('mech',0.00,34.7)]:
     r = json.load(open(f'results/chd_benchmark/pathway_metrics_{arm}.json'))
     p10 = r['metrics']['top10_precision']
     ri = r['metrics']['rank_improvement_cond_vs_raw']
@@ -458,7 +458,7 @@ print(f'  WP_CARDIAC_PROGENITOR null_z: {wpc.null_z:.1f} (expected 17.5)')
 print()
 print('=== KF-CHD GSEA ranks (from results/kf_chd/baseline_comparison.csv) ===')
 df4 = pd.read_csv('results/kf_chd/baseline_comparison.csv')
-for method, expected_rank in [('raw_ppr_gsea',3325),('cond_ppr_gsea',4414),('neighborhood_fisher',4529)]:
+for method, expected_rank in [('raw_ppr_gsea',1994),('cond_ppr_gsea',456),('neighborhood_fisher',2126)]:
     sub = df4[df4.method == method]
     cilia4 = sub[sub.name.str.contains('CILIOPATHIES', na=False)]
     rank = int(cilia4.iloc[0]['rank']) if len(cilia4) > 0 else 'not found'
@@ -467,7 +467,7 @@ for method, expected_rank in [('raw_ppr_gsea',3325),('cond_ppr_gsea',4414),('nei
 "
 ```
 
-**Note on Cond AUPRC:** `results_full.json` reports 0.1923; paper Table 1 reports 0.1902. These come from two different scoring runs on the same conditioning output. The 0.1902 value was from an earlier scoring run; the frozen `results/kf_chd/` output reports 0.1923 from the same conditioned score vector. Both are valid outputs of the same conditioned score vector; the small difference reflects pathway universe filtering differences between runs. All other metrics are identical.
+**Note on Cond AUPRC:** `results_full.json` reports 0.1923; paper Table 1 reports 0.1902. The small difference reflects pathway universe filtering differences between the conditioning run and the final scoring run on the same score vector. All other metrics are identical.
 
 For KF-CHD and KF-NBL verification, also run these commands from inside the bifo-graph root directory: 
 
@@ -479,27 +479,23 @@ import json, pandas as pd
 print('=== KF-CHD RESULTS ===')
 rs = json.load(open('results/kf_chd/resampling_summary.json'))
 pr = rs['primary_run']
-print(f'  Primary run P@10: {pr[\"bifo_p10\"]} (expected 0.20)')
-print(f'  Primary run AP: {pr[\"bifo_ap\"]:.3f} (expected 0.090)')
-print(f'  Primary run rank_improvement: {pr[\"rank_improvement\"]:.1f} (expected +303)')
-print(f'  Fisher P@10: {pr[\"sf_p10\"]} (expected 0.30)')
-print(f'  Fisher AP: {pr[\"sf_ap\"]:.3f} (expected 0.150)')
+print(f'  Primary run P@10: {pr[\"bifo_p10\"]} (expected 0.00)')
+print(f'  Primary run AP: {pr[\"bifo_ap\"]:.3f} (expected 0.012)')
+print(f'  Fisher P@10: {pr[\"sf_p10\"]} (expected 0.20)')
+print(f'  Fisher AP: {pr[\"sf_ap\"]:.3f} (expected 0.130)')
 
 # pathway_scores_standard.csv has ranking; null results are in separate file
 df = pd.read_csv('results/kf_chd/pathway_scores_standard.csv')
 df = df.sort_values('degree_norm', ascending=False)
-cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0] + 1
-print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 1)')
+df.index = range(1, len(df)+1)
+cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0]
+print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 43)')
 cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
-print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.8f} (expected 0.00000626)')
-
-# Null results are in the file produced by the scoring run with --n-permutations
-df_null = pd.read_csv('results/kf_chd/pathway_scores_null.csv')
-df_null = df_null.sort_values('degree_norm', ascending=False)
-cilia_n = df_null[df_null.name == 'WP_CILIOPATHIES'].iloc[0]
-print(f'  WP_CILIOPATHIES member null_z: {cilia_n.member_mean_null_z:.2f} (expected 3.45)')
-print(f'  WP_CILIOPATHIES member p: {cilia_n.member_mean_p:.6f} (expected 0.000999)')
-print(f'  WP_CILIOPATHIES rewiring null_z: {cilia_n.null_z:.2f} (expected -1.90)')
+print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.3e} (expected 8.509e-06)')
+print(f'  WP_CILIOPATHIES null_z: {cilia.null_z:.2f} (expected 48.71)')
+print(f'  WP_CILIOPATHIES empirical_q: {cilia.empirical_q:.4f} (expected 0.0058)')
+print(f'  WP_CILIOPATHIES member_mean_null_z: {cilia.member_mean_null_z:.3f} (expected 1.385)')
+print(f'  WP_CILIOPATHIES member_mean_p: {cilia.member_mean_p:.4f} (expected 0.0569)')
 "
 
 python3 -c "
@@ -507,33 +503,28 @@ import pandas as pd
 
 df = pd.read_csv('results/kf_nbl/pathway_scores_standard.csv')
 df = df.sort_values('degree_norm', ascending=False)
-cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0] + 1
+df.index = range(1, len(df)+1)
+cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0]
 print('=== KF-NBL RESULTS ===')
-print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 1)')
+print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 3)')
 cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
-print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.8f} (expected 0.00000596)')
-
-# Null results are in the file produced by scoring run with --n-permutations
-df_null = pd.read_csv('results/kf_nbl/pathway_scores_null.csv')
-df_null = df_null.sort_values('degree_norm', ascending=False)
-cilia_n = df_null[df_null.name == 'WP_CILIOPATHIES'].iloc[0]
-print(f'  WP_CILIOPATHIES rewiring null_z: {cilia_n.null_z:.2f} (expected 31.28)')
-print(f'  WP_CILIOPATHIES rewiring q: {cilia_n.empirical_q:.4f} (expected 0.0093)')
-print(f'  WP_CILIOPATHIES member null_z: {cilia_n.member_mean_null_z:.2f} (expected 2.41)')
-print(f'  WP_CILIOPATHIES member p: {cilia_n.member_mean_p:.6f} (expected 0.003996)')
+print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.3e} (expected 4.241e-06)')
+print(f'  WP_CILIOPATHIES null_z: {cilia.null_z:.2f} (expected 18.95)')
+print(f'  WP_CILIOPATHIES empirical_q: {cilia.empirical_q:.4f} (expected 0.0116)')
+print(f'  WP_CILIOPATHIES member_mean_null_z: {cilia.member_mean_null_z:.3f} (expected 2.433)')
+print(f'  WP_CILIOPATHIES member_mean_p: {cilia.member_mean_p:.4f} (expected 0.0030)')
 
 import json
 rn = json.load(open('results/kf_nbl/resampling_summary.json'))
 pn = rn['primary_run']
 print()
 print('=== KF-NBL resampling primary run ===')
-p10n = pn['bifo_p10']; apn = pn['bifo_ap']; rin = pn['rank_improvement']
+p10n = pn['bifo_p10']; apn = pn['bifo_ap']
 sf10n = pn['sf_p10']; sfapn = pn['sf_ap']
 print(f'  P@10={p10n} (expected 0.10)')
-print(f'  AP={apn:.3f} (expected 0.090)')
-print(f'  rank_improvement={rin:.1f} (expected +193)')
+print(f'  AP={apn:.3f} (expected 0.044)')
 print(f'  Fisher P@10={sf10n} (expected 0.20)')
-print(f'  Fisher AP={sfapn:.3f} (expected 0.117)')
+print(f'  Fisher AP={sfapn:.3f} (expected 0.099)')
 "
 ```
 

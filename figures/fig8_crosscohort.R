@@ -230,7 +230,7 @@ pD <- ggplot(rs_all, aes(x = seed_label, y = p10,
                      breaks = seq(0, 1, 0.2),
                      labels = percent_format(accuracy = 1)) +
   labs(title    = "D",
-       subtitle = paste0("Bootstrap resampling: P@10 vs 20-pathway cilia reference\n",
+       subtitle = paste0("Bootstrap resampling: P@10 vs 17-pathway cilia reference\n",
                          "(500 runs/seed size; dashed/dotted lines = primary run P@10)"),
        x = "Random seed sample size", y = "P@10") +
   theme_classic(base_size = 11) +

@@ -40,7 +40,7 @@ python3 pipeline/bifo_conditioning.py \
 
 **Frozen outputs:** `results/chd_benchmark/results_full.json`, `results_full_scores_cond.npy`, `results_full_scores_raw.npy`, `results_full_kept_edges.csv.zip`, `results_node_index.json`
 
-**Expected:** alpha=0.5, 104,342 kept edges (93,487 propagating), conditioned AUPRC=0.1902, entropy=5.217
+**Expected:** alpha=0.5, 105,192 kept edges (57,005 propagating), conditioned AUPRC=0.1947, entropy=4.934
 
 ### Step 1.2 — Ablation Arm (edges_raw only, no bridge edges)
 
@@ -210,7 +210,7 @@ python3 pipeline/chd_resampling_exhaustive.py \
   --n-cores           120
 ```
 
-**Expected:** 3,003 splits, 100% positive rank improvement, 95.1% P@10≥0.30
+**Expected:** 3,003 splits, 100% positive rank improvement, 94.4% P@10≥0.30
 
 ---
 
@@ -378,16 +378,16 @@ r = json.load(open('results/chd_benchmark/results_full.json'))
 cov = r['coverage']
 gs = r['graph_stats']
 print(f'  Nodes: {cov[\"total_nodes\"]} (expected 34,523)')
-print(f'  Kept edges: {cov[\"kept_edges\"]} (expected 104,342)')
+print(f'  Kept edges: {cov[\"kept_edges\"]} (expected 105,192)')
 print(f'  Pathway Contribution (bridge): {gs[\"flow_class_distribution\"][\"Pathway Contribution\"]} (expected 80,200 = 76.9% of kept edges)')
-print(f'  Cond AUPRC: {r[\"conditioned\"][\"auprc\"]:.4f} (expected 0.1923 from results_full.json; paper Table 1 reports 0.1902 from separate scoring run — see note)')
+print(f'  Cond AUPRC: {r[\"conditioned\"][\"auprc\"]:.4f} (expected 0.1947; paper Table 1 and results_full.json are now from the same run)')
 print(f'  Cond entropy: {r[\"conditioned\"][\"entropy\"]:.3f} (expected 5.222)')
 print(f'  Raw AUPRC: {r[\"raw\"][\"auprc\"]:.4f} (expected 0.2215)')
 print(f'  Raw entropy: {r[\"raw\"][\"entropy\"]:.3f} (expected 5.728)')
 
 print()
 print('=== TABLE 3: Three-arm ablation ===')
-for arm, ep10, eri in [('full',0.70,+125.4),('ablation',0.60,-11.2),('mech',0.00,34.7)]:
+for arm, ep10, eri in [('full',0.70,+125.4),('ablation',0.60,+13.5),('mech',0.00,34.7)]:
     r = json.load(open(f'results/chd_benchmark/pathway_metrics_{arm}.json'))
     p10 = r['metrics']['top10_precision']
     ri = r['metrics']['rank_improvement_cond_vs_raw']
@@ -430,8 +430,8 @@ r = json.load(open('results/chd_benchmark/resampling_summary.json'))
 rob = r['robustness']
 mets = r['metrics']
 print(f'  Splits: {r[\"n_splits_total\"]} (expected 3,003)')
-print(f'  P@10>=0.30: {rob[\"bifo_p10_ge_0.3\"]}/3003 = {rob[\"bifo_p10_ge_0.3\"]/3003*100:.1f}% (expected 95.1%)')
-print(f'  P@10>=0.50: {rob[\"bifo_p10_ge_0.5\"]}/3003 = {rob[\"bifo_p10_ge_0.5\"]/3003*100:.1f}% (expected 51.8%)')
+print(f'  P@10>=0.30: {rob[\"bifo_p10_ge_0.3\"]}/3003 = {rob[\"bifo_p10_ge_0.3\"]/3003*100:.1f}% (expected 94.4%)')
+print(f'  P@10>=0.50: {rob[\"bifo_p10_ge_0.5\"]}/3003 = {rob[\"bifo_p10_ge_0.5\"]/3003*100:.1f}% (expected 43.8%)')
 print(f'  Positive rank imp: {rob[\"rank_imp_positive\"]}/3003 (expected 3003)')
 print(f'  Median P@10: {mets[\"bifo_p10\"][\"median\"]:.2f} (expected 0.50)')
 print(f'  AP range: {mets[\"bifo_ap\"][\"min\"]:.3f}-{mets[\"bifo_ap\"][\"max\"]:.3f} (expected 0.136-0.448)')
@@ -467,7 +467,7 @@ for method, expected_rank in [('raw_ppr_gsea',1994),('cond_ppr_gsea',456),('neig
 "
 ```
 
-**Note on Cond AUPRC:** `results_full.json` reports 0.1923; paper Table 1 reports 0.1902. The small difference reflects pathway universe filtering differences between the conditioning run and the final scoring run on the same score vector. All other metrics are identical.
+**Note on Cond AUPRC:** `results_full.json` and paper Table 1 both report 0.1947. These are now from the same clean run of the unidirectional pipeline.
 
 For KF-CHD and KF-NBL verification, also run these commands from inside the bifo-graph root directory: 
 

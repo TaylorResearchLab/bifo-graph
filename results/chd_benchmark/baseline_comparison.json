@@ -8,9 +8,30 @@
     "n_hop1_genes": 11146,
     "n_gene_universe": 12998,
     "small_universe": false,
-    "b0_enabled": false
+    "b0_enabled": true
   },
   "methods": [
+    {
+      "n_scored": 550.0,
+      "n_reference": 18.0,
+      "background_rate": 0.03272727272727273,
+      "precision_at_10": 0.4,
+      "enrichment_at_10": 12.222222222222221,
+      "recall_at_10": 0.2222222222222222,
+      "ndcg_at_10": 0.4920062203073637,
+      "precision_at_20": 0.4,
+      "enrichment_at_20": 12.222222222222221,
+      "recall_at_20": 0.4444444444444444,
+      "ndcg_at_20": 0.49716873686997043,
+      "precision_at_50": 0.2,
+      "enrichment_at_50": 6.111111111111111,
+      "recall_at_50": 0.5555555555555556,
+      "ndcg_at_50": 0.5538984697552205,
+      "mean_ref_rank": 83.33333333333333,
+      "average_precision": 0.3428894942689527,
+      "method": "degree_overlap",
+      "description": "Degree-weighted seed overlap: score(p)=sum(degree_cond(g) for g in seeds\u2229members(p))/sqrt(|members(p)|)"
+    },
     {
       "n_scored": 550.0,
       "n_reference": 18.0,
@@ -90,8 +111,8 @@
       "enrichment_at_50": 0.611111111111111,
       "recall_at_50": 0.05555555555555555,
       "ndcg_at_50": 0.15194751309721466,
-      "mean_ref_rank": 259.77777777777777,
-      "average_precision": 0.08772433126979953,
+      "mean_ref_rank": 259.94444444444446,
+      "average_precision": 0.08770062554242863,
       "method": "cond_ppr_gsea",
       "description": "Preranked GSEA on conditioned PPR scores (BIFO universe)"
     },

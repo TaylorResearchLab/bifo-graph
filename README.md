@@ -120,7 +120,6 @@ bifo-graph/
     │   ├── baseline_comparison.json
     │   ├── resampling_summary.json         Exhaustive 3,003-split resampling summary
     │   ├── resampling_results.csv          Per-split resampling results
-    │   ├── test_structural_null.csv        Benchmark null model scores (both nulls)
     │   ├── c4_notch/                       C4/Notch pathway-split control results
     │   │   ├── pathway_metrics.json
     │   │   ├── baseline_comparison.json
@@ -148,7 +147,6 @@ bifo-graph/
     │   ├── nodes_clean_noncc.csv.gz        Node table (pipeline input)
     │   ├── edges_all_noncc.csv.gz          Edge table (pipeline input)
     │   ├── pathway_scores_standard.csv     Pathway scores (full universe)
-        │   ├── pathway_scores_null.csv         Pathway scores with empirical null results
     │   ├── pathway_metrics_standard.json   Pathway scoring metrics
         │   ├── baseline_comparison.csv         Baseline enrichment comparison
     │   ├── baseline_comparison.json
@@ -165,7 +163,6 @@ bifo-graph/
         ├── nodes_clean_noncc.csv.gz        Node table (pipeline input)
         ├── edges_all_noncc.csv.gz          Edge table (pipeline input)
         ├── pathway_scores_standard.csv     Pathway scores (full universe)
-                ├── pathway_scores_null.csv         Pathway scores with empirical null results
         ├── pathway_metrics_standard.json   Pathway scoring metrics
                 ├── baseline_comparison.csv         Baseline enrichment comparison
         ├── baseline_comparison.json
@@ -411,7 +408,7 @@ Figure source scripts are available in the companion figure repository
 - KF-CHD and KF-NBL variant gene seed lists (including CUI-resolved seed files)
 - Pre-computed KF-CHD and KF-NBL conditioning results, score vectors, pathway scores, and null model results
 - Exhaustive CHD resampling summary (3,003 splits) and KF cohort bootstrap resampling summaries
-- Benchmark and cohort null model scored outputs (`test_structural_null.csv`, `pathway_scores_null.csv`)
+- Benchmark and cohort null model scored outputs (null results integrated into `pathway_scores_full.csv` for benchmark and `pathway_scores_standard.csv` for KF cohorts)
 
 
 **Requires DDKG access (not shipped):**

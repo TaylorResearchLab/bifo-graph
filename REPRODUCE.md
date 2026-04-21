@@ -379,7 +379,7 @@ cov = r['coverage']
 gs = r['graph_stats']
 print(f'  Nodes: {cov[\"total_nodes\"]} (expected 34,523)')
 print(f'  Kept edges: {cov[\"kept_edges\"]} (expected 105,192)')
-print(f'  Pathway Contribution (propagating gene->PW): {gs[\"flow_class_distribution\"][\"Pathway Contribution\"]} (expected 43,698 = 76.7% of propagating edges)')
+print(f'  Pathway Contribution (propagating gene->PW): {gs[\"flow_class_distribution\"][\"Pathway Contribution\"]} (expected 43,698 = 76.7% of 57,005 propagating edges)')
 print(f'  Cond AUPRC: {r[\"conditioned\"][\"auprc\"]:.4f} (expected 0.1947; paper Table 1 and results_full.json are now from the same run)')
 print(f'  Cond entropy: {r[\"conditioned\"][\"entropy\"]:.3f} (expected 4.934)')
 print(f'  Raw AUPRC: {r[\"raw\"][\"auprc\"]:.4f} (expected 0.2215)')

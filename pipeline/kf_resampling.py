@@ -21,7 +21,7 @@ Usage
     --node-index   kf_chd_results/results_node_index.json \\
     --bifo-scores  kf_chd_results/pathway_scores_standard.csv \\
     --seed-pool    kf_chd_seeds.txt \\
-    --ref-pathways kf_chd_ncc_reference.txt \\
+    --ref-pathways kf_chd_cilia_reference.txt \\
     --out-csv      kf_chd_results/resampling_results.csv \\
     --out-json     kf_chd_results/resampling_summary.json \\
     --seed-sizes   10 20 30 \\
@@ -502,7 +502,7 @@ def main():
     p.add_argument('--seed-pool',    required=True,
                    help='kf_chd_seeds.txt or kf_nbl_seeds.txt (gene symbols + counts)')
     p.add_argument('--ref-pathways', required=True,
-                   help='Reference pathway CUI list (kf_chd_ncc_reference.txt)')
+                   help='Reference pathway CUI list (kf_chd_cilia_reference.txt)')
     p.add_argument('--out-csv',      required=True)
     p.add_argument('--out-json',     required=True)
     p.add_argument('--seed-sizes',   type=int, nargs='+', default=[10, 20, 30],

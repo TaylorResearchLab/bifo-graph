@@ -114,9 +114,9 @@ python3 pipeline/score_pathways.py \
   --out-json results/chd_benchmark/test_structural_null.json
 ```
 
-**Expected (pathway-node rewiring null):** 49/550 pathways significant at q<0.05; BRUNEAU q=0.017 null_z=24.1
+**Expected (pathway-node rewiring null):** 16/550 pathways significant at q<0.05; BRUNEAU q=0.034 null_z=15.6
 
-**Expected (member-level stratified null):** 25/550 pathways significant at q<0.05; BRUNEAU null_z=10.6 q=0.037; WP_HEART_DEVELOPMENT null_z=10.9 q=0.037
+**Expected (member-level stratified null):** 17/550 pathways significant at q<0.05; BRUNEAU null_z=10.7 q=0.032; WP_HEART_DEVELOPMENT null_z=10.1 q=0.032
 
 ### Step 1.6 — Pathway Scoring: Ablation and Mechanistic Arms (Table 3)
 
@@ -443,17 +443,17 @@ df = df.sort_values('degree_norm', ascending=False)
 sig = (df.empirical_q < 0.05).sum()
 sig_mm = (df.member_mean_q < 0.05).sum()
 bruneau = df[df.name.str.contains('BRUNEAU')].iloc[0]
-print(f'  Rewiring null sig q<0.05: {sig} (expected 49)')
-print(f'  BRUNEAU rewiring null_z: {bruneau.null_z:.1f} (expected 24.1)')
+print(f'  Rewiring null sig q<0.05: {sig} (expected 16)')
+print(f'  BRUNEAU rewiring null_z: {bruneau.null_z:.1f} (expected 15.6)')
 print(f'  BRUNEAU q: {bruneau.empirical_q:.3f} (expected 0.017)')
-print(f'  Member null sig q<0.05: {sig_mm} (expected 25)')
+print(f'  Member null sig q<0.05: {sig_mm} (expected 17)')
 print(f'  BRUNEAU member null_z: {bruneau.member_mean_null_z:.1f} (expected 10.6)')
 print(f'  BRUNEAU member q: {bruneau.member_mean_q:.3f} (expected 0.037)')
 
 wph = df[df.name.str.contains('WP_HEART_DEVELOPMENT')].iloc[0]
 wpc = df[df.name.str.contains('WP_CARDIAC_PROGENITOR')].iloc[0]
-print(f'  WP_HEART null_z: {wph.null_z:.1f} (expected 21.7)')
-print(f'  WP_CARDIAC_PROGENITOR null_z: {wpc.null_z:.1f} (expected 17.5)')
+print(f'  WP_HEART null_z: {wph.null_z:.1f} (expected 16.3)')
+print(f'  WP_CARDIAC_PROGENITOR null_z: {wpc.null_z:.1f} (expected 12.3)')
 
 print()
 print('=== KF-CHD GSEA ranks (from results/kf_chd/baseline_comparison.csv) ===')

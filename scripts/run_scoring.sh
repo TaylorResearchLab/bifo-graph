@@ -1,49 +1,26 @@
 #!/usr/bin/env bash
 # =============================================================================
 # run_scoring.sh
-# Stage 4: Pathway scoring — standard universe.
+# Stage 4: Pathway scoring — standard MSIGDB universe.
 #
 # Usage:
 #   bash run_scoring.sh [COHORT]
 #   COHORT defaults to "chd"
-#
-# Inputs:
-#   kf_{cohort}_nodes_extended.csv
-#   kf_{cohort}_edges_all.csv
-#   kf_{cohort}_results/results_kept_edges.csv
-#   kf_{cohort}_results/results_scores_cond.npy
-#   kf_{cohort}_results/results_scores_raw.npy
-#   kf_{cohort}_results/results_node_index.json
-#   kf_{cohort}_seed_cuis.txt
-#   kf_{cohort}_ncc_reference.txt
-#
-# Outputs (written to kf_{cohort}_results/):
-#   pathway_scores_standard.csv
-#   pathway_metrics_standard.json
 # =============================================================================
 
 set -euo pipefail
 
 COHORT="${1:-chd}"
-N_CORES="${2:-0}"   # 0 = auto-detect all available cores
+N_CORES="${2:-0}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PIPELINE_DIR="$REPO_DIR/pipeline"
-DATA_DIR="$REPO_DIR/data"
-CONFIG_DIR="$REPO_DIR/config"
 RESULTS_DIR="kf_${COHORT}_results"
+DATA_DIR="$REPO_DIR/data"
 
 echo "============================================================"
 echo "Pathway Scoring for cohort: $COHORT"
 echo "============================================================"
-
-# --- Run 4.1: Standard pathway universe (no reference) ---
-echo ""
-NCC_REF="kf_${COHORT}_ncc_reference.txt"
-if [ ! -f "$NCC_REF" ]; then
-    REPO_REF="$DATA_DIR/cohorts/${COHORT}/$NCC_REF"
-    [ -f "$REPO_REF" ] && NCC_REF="$REPO_REF"
-fi
 
 SEED_CUIS="kf_${COHORT}_seed_cuis.txt"
 
@@ -56,15 +33,15 @@ python3 "$PIPELINE_DIR/score_pathways.py" \
     --scores-raw        "${RESULTS_DIR}/results_scores_raw.npy" \
     --node-index        "${RESULTS_DIR}/results_node_index.json" \
     --seed-nodes        "$SEED_CUIS" \
+    --chd-pathways      "$DATA_DIR/cohorts/${COHORT}/kf_${COHORT}_cilia_reference.txt" \
+    --allowed-name-prefixes HALLMARK_ REACTOME_ WP_ KEGG_ BIOCARTA_ PID_ \
+    --min-members 8 --max-members 300 \
+    --n-permutations 1000 \
+    --null-type membership-rewiring \
     --out-csv           "${RESULTS_DIR}/pathway_scores_standard.csv" \
     --out-json          "${RESULTS_DIR}/pathway_metrics_standard.json" \
     --n-cores           "$N_CORES"
 
-# NCC/cilia reference scoring removed pending native DDKG integration
-# Run build_cilia_ref.sh + run_baseline.sh chd cilia for cilia-reference comparison
 echo ""
-# NCC/cilia reference scoring removed — pending native DDKG pathway integration
-# Use: bash build_cilia_ref.sh $COHORT && bash run_baseline.sh $COHORT cilia
-
 echo "Scoring complete."
 echo "Next step: bash run_baseline.sh $COHORT"

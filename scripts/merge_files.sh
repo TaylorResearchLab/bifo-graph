@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # merge_files.sh
-# Stage 2.3: Merge cleaned CSV files using pandas (header-safe).
+# Stage 2.2: Merge cleaned CSV files using pandas (header-safe).
 #
 # Usage:
 #   bash merge_files.sh [COHORT]
@@ -9,15 +9,13 @@
 #
 # Inputs:
 #   kf_{cohort}_nodes_clean.csv
-#   kf_{cohort}_ncc_pathway_nodes.csv
+#   kf_{cohort}_pathway_member_nodes_clean.csv
 #   kf_{cohort}_edges_raw_clean.csv
 #   kf_{cohort}_pathway_membership_edges_clean.csv
-#   kf_{cohort}_ncc_membership_edges.csv
 #
 # Outputs:
-#   kf_{cohort}_nodes_extended.csv   (nodes_clean + ncc_pathway_nodes)
-#   kf_{cohort}_edges_merged.csv     (edges_raw_clean + pathway_membership)
-#   kf_{cohort}_edges_all.csv        (edges_merged + ncc_membership_edges)
+#   kf_{cohort}_nodes_extended.csv   (nodes_clean + pathway_member_nodes)
+#   kf_{cohort}_edges_all.csv        (edges_raw_clean + pathway_membership)
 #
 # NOTE: Uses pandas pd.concat — never cat. The cat command does not skip
 # duplicate CSV headers and produces malformed files.
@@ -28,8 +26,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PIPELINE_DIR="$REPO_DIR/pipeline"
-DATA_DIR="$REPO_DIR/data"
-CONFIG_DIR="$REPO_DIR/config"
 
 COHORT="${1:-chd}"
 
@@ -39,7 +35,6 @@ echo "============================================================"
 
 python3 - <<PYEOF
 import pandas as pd
-import sys
 
 cohort = "${COHORT}"
 
@@ -51,19 +46,13 @@ def merge(files, out):
 
 merge(
     [f"kf_{cohort}_nodes_clean.csv",
-     f"kf_{cohort}_ncc_pathway_nodes.csv"],
+     f"kf_{cohort}_pathway_member_nodes_clean.csv"],
     f"kf_{cohort}_nodes_extended.csv"
 )
 
 merge(
     [f"kf_{cohort}_edges_raw_clean.csv",
      f"kf_{cohort}_pathway_membership_edges_clean.csv"],
-    f"kf_{cohort}_edges_merged.csv"
-)
-
-merge(
-    [f"kf_{cohort}_edges_merged.csv",
-     f"kf_{cohort}_ncc_membership_edges.csv"],
     f"kf_{cohort}_edges_all.csv"
 )
 

@@ -15,25 +15,22 @@
 #   bash run_full_pipeline.sh chd neo4j mypassword bolt://localhost:7687
 #   bash run_full_pipeline.sh nbl neo4j mypassword bolt://localhost:7687
 #
-# Requirements (all in same directory as this script):
+# Requirements:
 #   Python scripts  : bifo_conditioning.py, score_pathways.py,
 #                     baseline_enrichment.py, seed_cui_lookup.py,
-#                     build_ncc_membership_edges.py, clean_cypher_output.py,
-#                     kf_resampling.py
+#                     clean_cypher_output.py, kf_resampling.py
 #   Shell scripts   : run_kf_{cohort}_export.sh, clean_files.sh,
-#                     build_ncc_edges.sh, merge_files.sh, run_seed_lookup.sh,
+#                     merge_files.sh, run_seed_lookup.sh,
 #                     run_conditioning.sh, run_scoring.sh, run_baseline.sh,
 #                     run_resampling.sh
-#   Data files      : ncc_cilia_pathways/ directory, bifo_mapping.yaml,
-#                     kf_{cohort}_seeds.txt, kf_{cohort}_ncc_reference.txt,
-#                     kf_{cohort}_query[2-5].cypher
+#   Data files      : bifo_mapping.yaml, kf_{cohort}_seeds.txt
 # =============================================================================
 
 set -euo pipefail
 
 COHORT="${1:-chd}"
-SEEDS="${2:-maf001}"   # maf001 (default) | maf01 | "" (original)
-N_CORES="${3:-0}"      # 0 = auto-detect; set explicitly e.g. 8
+SEEDS="${2:-maf001}"
+N_CORES="${3:-0}"
 NEO4J_USER="${4:-neo4j}"
 NEO4J_PASS="${5:-neo4j}"
 NEO4J_ADDR="${6:-bolt://localhost:7687}"
@@ -58,19 +55,16 @@ bash "$SCRIPT_DIR/run_kf_${COHORT}_export.sh" \
 log_stage "2.1" "Clean cypher-shell output"
 bash "$SCRIPT_DIR/clean_files.sh" "$COHORT"
 
-log_stage "2.2" "Build NCC/cilia membership edges"
-bash "$SCRIPT_DIR/build_ncc_edges.sh" "$COHORT"
-
-log_stage "2.3" "Merge CSV files"
+log_stage "2.2" "Merge CSV files"
 bash "$SCRIPT_DIR/merge_files.sh" "$COHORT"
 
-log_stage "2.4" "Seed CUI lookup"
+log_stage "2.3" "Seed CUI lookup"
 bash "$SCRIPT_DIR/run_seed_lookup.sh" "$COHORT" "$SEEDS"
 
 log_stage "3" "BIFO conditioning + PPR"
 bash "$SCRIPT_DIR/run_conditioning.sh" "$COHORT"
 
-log_stage "4" "Pathway scoring (standard + NCC)"
+log_stage "4" "Pathway scoring"
 bash "$SCRIPT_DIR/run_scoring.sh" "$COHORT" "$N_CORES"
 
 log_stage "5" "Baseline enrichment comparison"
@@ -86,7 +80,6 @@ echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 echo "  Key outputs:"
 echo "    kf_${COHORT}_results/pathway_metrics_standard.json"
-echo "    kf_${COHORT}_results/pathway_metrics_ncc.json"
 echo "    kf_${COHORT}_results/baseline_comparison.json"
 echo "    kf_${COHORT}_results/resampling_summary.json"
 echo "============================================================"

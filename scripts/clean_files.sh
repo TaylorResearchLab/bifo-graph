@@ -11,16 +11,13 @@
 #   kf_{cohort}_nodes.csv
 #   kf_{cohort}_edges_raw.csv
 #   kf_{cohort}_pathway_membership_edges.csv
+#   kf_{cohort}_pathway_member_nodes.csv
 #
 # Outputs:
 #   kf_{cohort}_nodes_clean.csv
 #   kf_{cohort}_edges_raw_clean.csv
 #   kf_{cohort}_pathway_membership_edges_clean.csv
-#
-# What clean_cypher_output.py does:
-#   - Strips leading/trailing spaces from column names
-#   - Removes double-quotes wrapping field values (cypher-shell artifact)
-#   - Skips Java warning lines at the top of the file
+#   kf_{cohort}_pathway_member_nodes_clean.csv
 # =============================================================================
 
 set -euo pipefail
@@ -29,8 +26,6 @@ COHORT="${1:-chd}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PIPELINE_DIR="$REPO_DIR/pipeline"
-DATA_DIR="$REPO_DIR/data"
-CONFIG_DIR="$REPO_DIR/config"
 
 echo "============================================================"
 echo "Cleaning cypher-shell output for cohort: $COHORT"
@@ -48,6 +43,10 @@ python3 "$PIPELINE_DIR/clean_cypher_output.py" \
     "kf_${COHORT}_pathway_membership_edges.csv" \
     "kf_${COHORT}_pathway_membership_edges_clean.csv"
 
+python3 "$PIPELINE_DIR/clean_cypher_output.py" \
+    "kf_${COHORT}_pathway_member_nodes.csv" \
+    "kf_${COHORT}_pathway_member_nodes_clean.csv"
+
 echo ""
 echo "Cleaning complete."
-echo "Next step: bash build_ncc_edges.sh $COHORT"
+echo "Next step: bash merge_files.sh $COHORT"

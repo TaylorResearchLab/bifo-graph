@@ -4,7 +4,7 @@
 # Scatter plot of degree_norm rank vs pathway-node rewiring null_z for all
 # scored pathways in each cohort. Cilia reference pathways highlighted.
 # Illustrates the rank vs statistical enrichment distinction: WP_CILIOPATHIES
-# ranks 43rd by degree_norm but has the highest null_z in KF-CHD.
+# ranks near the top by degree_norm but has the highest null_z in KF-CHD.
 #
 # Data: results/kf_chd/pathway_scores_standard.csv
 #       results/kf_nbl/pathway_scores_standard.csv
@@ -42,6 +42,22 @@ nbl <- nbl %>% arrange(desc(degree_norm)) %>% mutate(rank = row_number())
 # Mark cilia reference pathways
 chd <- chd %>% mutate(cilia = concept_id %in% chd_ref)
 nbl <- nbl %>% mutate(cilia = concept_id %in% nbl_ref)
+
+# Derive seed counts from seed files (exclude comment lines)
+read_seeds <- function(path) {
+  lines <- readLines(path)
+  lines[!grepl("^#", lines) & nchar(trimws(lines)) > 0]
+}
+chd_seeds <- read_seeds(file.path(BASE, "bifo-graph/data/cohorts/chd/kf_chd_seeds_maf001.txt"))
+nbl_seeds <- read_seeds(file.path(BASE, "bifo-graph/data/cohorts/nbl/kf_nbl_seeds_maf001.txt"))
+
+# Pull WP_CILIOPATHIES stats dynamically from scores
+chd_cilia_row  <- chd %>% filter(name == "WP_CILIOPATHIES")
+nbl_cilia_row  <- nbl %>% filter(name == "WP_CILIOPATHIES")
+chd_cilia_rank <- chd_cilia_row$rank[1]
+chd_cilia_nz   <- round(chd_cilia_row$null_z[1], 1)
+nbl_cilia_rank <- nbl_cilia_row$rank[1]
+nbl_cilia_nz   <- round(nbl_cilia_row$null_z[1], 1)
 
 # Key pathways to label
 label_names <- c("WP_CILIOPATHIES", "WP_JOUBERT_SYNDROME",
@@ -110,8 +126,16 @@ make_panel <- function(df, cohort_label, n_pathways, top_pathway = "WP_CILIOPATH
     )
 }
 
-pA <- make_panel(chd, "KF-CHD  (1,276 seeds, 2,130 pathways)", nrow(chd))
-pB <- make_panel(nbl, "KF-NBL  (1,395 seeds, 2,196 pathways)", nrow(nbl))
+pA <- make_panel(chd,
+                 sprintf("KF-CHD  (%s seeds, %s pathways)",
+                         format(length(chd_seeds), big.mark = ","),
+                         format(nrow(chd),         big.mark = ",")),
+                 nrow(chd))
+pB <- make_panel(nbl,
+                 sprintf("KF-NBL  (%s seeds, %s pathways)",
+                         format(length(nbl_seeds), big.mark = ","),
+                         format(nrow(nbl),         big.mark = ",")),
+                 nrow(nbl))
 
 # ── Assemble ──────────────────────────────────────────────────────────────────
 fig9 <- pA | pB +
@@ -121,7 +145,9 @@ fig9 <- pA | pB +
       "Each point is a scored pathway. Blue points: 16-pathway cilia reference set. ",
       "Degree-norm rank reflects absolute propagated signal; null_z reflects signal ",
       "relative to degree-preserving membership rewiring null (N=1,000 permutations).\n",
-      "WP_CILIOPATHIES ranks 43rd/2,130 in KF-CHD (null_z = 41.2) and 3rd/2,196 in KF-NBL (null_z = 18.4) by degree_norm, ",
+      sprintf("WP_CILIOPATHIES ranks %drd/%s in KF-CHD (null_z = %.1f) and %drd/%s in KF-NBL (null_z = %.1f) by degree_norm, ",
+              chd_cilia_rank, format(nrow(chd), big.mark = ","), chd_cilia_nz,
+              nbl_cilia_rank, format(nrow(nbl), big.mark = ","), nbl_cilia_nz),
       "but shows the highest pathway-node null_z among well-calibrated pathways in KF-CHD, illustrating that rank and ",
       "statistical enrichment are complementary, not redundant, metrics."
     ),

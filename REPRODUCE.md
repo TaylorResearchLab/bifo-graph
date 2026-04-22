@@ -268,9 +268,9 @@ python3 pipeline/score_pathways.py \
   --out-json results/kf_chd/pathway_metrics_standard.json
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 43/2,130 (top 2%), degree_norm=8.509e-06; WP_JOUBERT_SYNDROME rank 34. Pathway universe: 2,130 (CGP sets excluded via --allowed-name-prefixes).
+**Expected (scoring):** WP_CILIOPATHIES rank 43/2,130 (top 2%), degree_norm=8.509e-06; WP_JOUBERT_SYNDROME rank 34 (null degenerate in CHD). Pathway universe: 2,130 (CGP sets excluded via --allowed-name-prefixes).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=48.71, empirical q=0.006 (valid — bridge edges 41.4% of propagating graph; see Methods §8.4)
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=41.19, empirical q=0.0081 (valid — bridge edges 41.4% of propagating graph; see Methods §8.4)
 
 **Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=1.39, empirical p=0.057 (not significant at member level; signal concentrated at pathway node)
 
@@ -339,9 +339,9 @@ python3 pipeline/score_pathways.py \
   --out-json results/kf_nbl/pathway_metrics_standard.json
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 3/2,196, degree_norm=4.241e-06, null_z=18.95, q=0.012; WP_JOUBERT_SYNDROME rank 17. Pathway universe: 2,196 (CGP sets excluded).
+**Expected (scoring):** WP_CILIOPATHIES rank 3/2,196, degree_norm=4.241e-06, null_z=18.37, q=0.014; WP_JOUBERT_SYNDROME rank 17. Pathway universe: 2,196 (CGP sets excluded).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=18.95, empirical q=0.012 (valid)
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=18.37, empirical q=0.014 (valid)
 
 **Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=2.43, empirical p=0.003 (significant — signal distributed across member genes in NBL)
 
@@ -494,7 +494,7 @@ cilia_rank = df[df.name == 'WP_CILIOPATHIES'].index[0]
 print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 43)')
 cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
 print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.3e} (expected 8.509e-06)')
-print(f'  WP_CILIOPATHIES null_z: {cilia.null_z:.2f} (expected 48.71)')
+print(f'  WP_CILIOPATHIES null_z: {cilia.null_z:.2f} (expected 41.19)')
 print(f'  WP_CILIOPATHIES empirical_q: {cilia.empirical_q:.4f} (expected 0.0058)')
 print(f'  WP_CILIOPATHIES member_mean_null_z: {cilia.member_mean_null_z:.3f} (expected 1.385)')
 print(f'  WP_CILIOPATHIES member_mean_p: {cilia.member_mean_p:.4f} (expected 0.0569)')

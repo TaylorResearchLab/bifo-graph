@@ -313,6 +313,8 @@ class PathwayScore:
     null_mean: Optional[float] = None
     null_sd: Optional[float] = None
     null_z: Optional[float] = None
+    null_calibrated: Optional[bool] = None        # False when signal_to_null_mean > 10
+    signal_to_null_mean: Optional[float] = None   # observed / null_mean; >10 = degenerate
     # Member-mean null outputs — stratified gene set permutation
     # (None when --n-permutations not used)
     member_mean_p: Optional[float] = None
@@ -819,32 +821,55 @@ def compute_empirical_pvalues(
     """
     n_pathways, n_perm = null_matrix.shape
 
-    exceed_counts = (null_matrix >= observed[:, np.newaxis]).sum(axis=1)
-    empirical_p = (1.0 + exceed_counts) / (1.0 + n_perm)
-
-    # BH FDR correction
-    n = len(empirical_p)
-    order = np.argsort(empirical_p)
-    ranks = np.empty(n, dtype=int)
-    ranks[order] = np.arange(1, n + 1)
-    empirical_q_raw = np.minimum(1.0, empirical_p * n / ranks)
-    # Enforce monotonicity
-    empirical_q_mono = np.minimum.accumulate(empirical_q_raw[order][::-1])[::-1]
-    empirical_q = np.empty(n)
-    empirical_q[order] = empirical_q_mono
-
     null_mean = null_matrix.mean(axis=1)
     null_sd   = null_matrix.std(axis=1)
 
     with np.errstate(divide='ignore', invalid='ignore'):
         null_z = np.where(null_sd > 0, (observed - null_mean) / null_sd, 0.0)
 
+    # Calibration filter: exclude pathways where null distribution is near-degenerate.
+    # A pathway is degenerate when its null_mean is < 10% of its observed score
+    # (signal_to_null_mean > 10), meaning random rewirings never approach the
+    # observed signal level and null_z is mechanically inflated rather than
+    # biologically informative. These pathways are excluded from BH correction
+    # and reported with null_z = NaN and empirical_q = NaN.
+    NULL_CALIBRATION_THRESHOLD = 10.0
+    with np.errstate(divide='ignore', invalid='ignore'):
+        signal_to_null_mean = np.where(
+            null_mean > 0, observed / null_mean, np.inf)
+    null_calibrated = signal_to_null_mean <= NULL_CALIBRATION_THRESHOLD
+
+    exceed_counts = (null_matrix >= observed[:, np.newaxis]).sum(axis=1)
+    empirical_p_all = (1.0 + exceed_counts) / (1.0 + n_perm)
+
+    # BH FDR correction applied only to well-calibrated pathways
+    cal_idx = np.where(null_calibrated)[0]
+    empirical_p = np.full(n_pathways, np.nan)
+    empirical_q = np.full(n_pathways, np.nan)
+    null_z_out  = np.where(null_calibrated, null_z, np.nan)
+
+    empirical_p[cal_idx] = empirical_p_all[cal_idx]
+
+    if len(cal_idx) > 0:
+        p_cal = empirical_p_all[cal_idx]
+        n_cal = len(p_cal)
+        order = np.argsort(p_cal)
+        ranks = np.empty(n_cal, dtype=int)
+        ranks[order] = np.arange(1, n_cal + 1)
+        q_raw = np.minimum(1.0, p_cal * n_cal / ranks)
+        q_mono = np.minimum.accumulate(q_raw[order][::-1])[::-1]
+        q_cal = np.empty(n_cal)
+        q_cal[order] = q_mono
+        empirical_q[cal_idx] = q_cal
+
     return {
-        'empirical_p': empirical_p,
-        'empirical_q': empirical_q,
-        'null_mean':   null_mean,
-        'null_sd':     null_sd,
-        'null_z':      null_z,
+        'empirical_p':         empirical_p,
+        'empirical_q':         empirical_q,
+        'null_mean':           null_mean,
+        'null_sd':             null_sd,
+        'null_z':              null_z_out,
+        'null_calibrated':     null_calibrated,
+        'signal_to_null_mean': signal_to_null_mean,
     }
 
 
@@ -1502,6 +1527,10 @@ def evaluate_pathway_recovery(
     if any(p.empirical_q is not None for p in scored):
         metrics['n_significant_q05'] = float(n_sig_05)
         metrics['n_significant_q10'] = float(n_sig_10)
+        n_calibrated = sum(1 for p in scored if p.null_calibrated is True)
+        n_degenerate = sum(1 for p in scored if p.null_calibrated is False)
+        metrics['n_null_calibrated'] = float(n_calibrated)
+        metrics['n_null_degenerate'] = float(n_degenerate)
 
     return metrics
 
@@ -1668,12 +1697,24 @@ def score_pathways(
 
             pval_results = compute_empirical_pvalues(observed_scores, null_matrix)
 
+            n_degenerate = int((~pval_results['null_calibrated']).sum())
+            if n_degenerate > 0:
+                log.info("Null calibration filter: %d / %d pathways excluded "
+                         "(signal_to_null_mean > 10); BH correction on remaining %d",
+                         n_degenerate, len(scored), len(scored) - n_degenerate)
+
             for i, p in enumerate(scored):
-                p.empirical_p = float(pval_results['empirical_p'][i])
-                p.empirical_q = float(pval_results['empirical_q'][i])
-                p.null_mean   = float(pval_results['null_mean'][i])
-                p.null_sd     = float(pval_results['null_sd'][i])
-                p.null_z      = float(pval_results['null_z'][i])
+                ep = pval_results['empirical_p'][i]
+                eq = pval_results['empirical_q'][i]
+                p.empirical_p        = None if np.isnan(ep) else float(ep)
+                p.empirical_q        = None if np.isnan(eq) else float(eq)
+                p.null_mean          = float(pval_results['null_mean'][i])
+                p.null_sd            = float(pval_results['null_sd'][i])
+                nz = pval_results['null_z'][i]
+                p.null_z             = None if np.isnan(nz) else float(nz)
+                p.null_calibrated    = bool(pval_results['null_calibrated'][i])
+                snm = pval_results['signal_to_null_mean'][i]
+                p.signal_to_null_mean = None if np.isinf(snm) else float(snm)
 
             n_sig = sum(1 for p in scored if p.empirical_q is not None and p.empirical_q < 0.05)
             log.info("Empirical null complete: %d / %d pathways significant at q < 0.05",
@@ -1927,7 +1968,11 @@ Examples:
         print(f"\n  Empirical null ({args.n_permutations} permutations):")
         print(f"  Null universe size:       {metrics.get('null_universe_size', 0):.0f} genes")
         print(f"  Effective seeds used:     {metrics.get('n_effective_seeds', 0):.0f}")
-        print(f"  Significant (q<0.05):     {metrics.get('n_significant_q05', 0):.0f}")
+        n_cal = int(metrics.get('n_null_calibrated', 0))
+        n_deg = int(metrics.get('n_null_degenerate', 0))
+        print(f"  Well-calibrated:          {n_cal} / {n_cal + n_deg} pathways (signal/null_mean <= 10)")
+        print(f"  Degenerate (excluded):    {n_deg} pathways (null_z and q set to NaN)")
+        print(f"  Significant (q<0.05):     {metrics.get('n_significant_q05', 0):.0f} (of {n_cal} calibrated)")
         print(f"  Significant (q<0.10):     {metrics.get('n_significant_q10', 0):.0f}")
     print(f"\n  Top 10 pathways [{args.score_variant}]:")
     for i, p in enumerate(ranked[:10], 1):

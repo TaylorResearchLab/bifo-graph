@@ -75,7 +75,7 @@ bifo-graph/
 │       │   ├── kf_chd_seeds.txt            Original unfiltered seed list
 │       │   ├── kf_chd_seed_cuis.txt        CUI-resolved seed list (pipeline input)
 │       │   ├── kf_chd_seed_nodes.csv.zip   Full seed node metadata
-│       │   └── kf_chd_cilia_reference.txt  MSigDB cilia pathway reference set (17 CUIs)
+│       │   └── kf_chd_cilia_reference.txt  MSigDB cilia pathway reference set (16 CUIs)
 │       │
 │       └── nbl/                 KF-NBL variant gene seeds and references
 │           ├── kf_nbl_seeds_maf001.txt     Primary seeds (MAF≤0.001, n≥1; 1,406 genes)
@@ -84,7 +84,7 @@ bifo-graph/
 │           ├── kf_nbl_seeds_maf01.txt      MAF≤0.01 seeds (broader filter)
 │           ├── kf_nbl_seeds.txt            Original unfiltered seed list
 │           ├── kf_nbl_seed_cuis.txt        CUI-resolved seed list (pipeline input)
-│           └── kf_nbl_cilia_reference.txt  MSigDB cilia pathway reference set (17 CUIs)
+│           └── kf_nbl_cilia_reference.txt  MSigDB cilia pathway reference set (16 CUIs)
 │
 ├── examples/
 │   └── minimal_test/            Self-contained 15-gene CHD end-to-end test

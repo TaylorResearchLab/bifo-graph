@@ -18,7 +18,8 @@
 # Requirements:
 #   Python scripts  : bifo_conditioning.py, score_pathways.py,
 #                     baseline_enrichment.py, seed_cui_lookup.py,
-#                     clean_cypher_output.py, kf_resampling.py
+#                     clean_cypher_output.py, kf_resampling.py,
+#                     summarize_results.py
 #   Shell scripts   : run_kf_{cohort}_export.sh, clean_files.sh,
 #                     merge_files.sh, run_seed_lookup.sh,
 #                     run_conditioning.sh, run_scoring.sh, run_baseline.sh,
@@ -73,13 +74,41 @@ bash "$SCRIPT_DIR/run_baseline.sh" "$COHORT"
 log_stage "6" "Bootstrap resampling"
 bash "$SCRIPT_DIR/run_resampling.sh" "$COHORT" "$SEEDS"
 
+log_stage "7" "Generate summary output files"
+RESULTS_DIR="$REPO_DIR/results/kf_${COHORT}"
+COHORT_DATA="$DATA_DIR/cohorts/${COHORT}"
+COHORT_LABEL="KF-$(echo "$COHORT" | tr '[:lower:]' '[:upper:]')"
+
+# Set disease label per cohort
+if [ "$COHORT" = "chd" ]; then
+    DISEASE="congenital heart disease"
+    N_PROBANDS=697
+elif [ "$COHORT" = "nbl" ]; then
+    DISEASE="neuroblastoma"
+    N_PROBANDS=460
+else
+    DISEASE=""
+    N_PROBANDS=0
+fi
+
+python "$PIPELINE_DIR/summarize_results.py" \
+    --scores      "$RESULTS_DIR/pathway_scores_standard.csv" \
+    --seeds       "$COHORT_DATA/kf_${COHORT}_seeds_maf001.txt" \
+    --reference   "$COHORT_DATA/kf_${COHORT}_cilia_reference.txt" \
+    --cohort-name "$COHORT_LABEL" \
+    --disease     "$DISEASE" \
+    --n-probands  "$N_PROBANDS" \
+    --outdir      "$RESULTS_DIR"
+
 echo ""
 echo "============================================================"
 echo "  PIPELINE COMPLETE — cohort: $COHORT"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 echo "  Key outputs:"
-echo "    kf_${COHORT}_results/pathway_metrics_standard.json"
-echo "    kf_${COHORT}_results/baseline_comparison.json"
-echo "    kf_${COHORT}_results/resampling_summary.json"
+echo "    results/kf_${COHORT}/pathway_metrics_standard.json"
+echo "    results/kf_${COHORT}/baseline_comparison.json"
+echo "    results/kf_${COHORT}/resampling_summary.json"
+echo "    results/kf_${COHORT}/pathway_results_summary.tsv"
+echo "    results/kf_${COHORT}/pathway_results_llm.md"
 echo "============================================================"

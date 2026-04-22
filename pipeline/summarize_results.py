@@ -71,12 +71,13 @@ def load_lines(path):
     if not path:
         return set()
     with open(path) as f:
-        return {l.strip() for l in f if l.strip()}
+        return {l.strip() for l in f if l.strip() and not l.startswith('#')}
 
 
 def safe_float(val):
     try:
-        return float(val)
+        f = float(val)
+        return None if f != f else f  # f != f is True only for NaN
     except (TypeError, ValueError):
         return None
 
@@ -106,7 +107,7 @@ def build_summary(rows, reference_ids):
             'pathway_name':       r.get('name', cid),
             'pathway_id':         cid,
             'source':             r.get('sab', ''),
-            'n_members':          r.get('n_members') or r.get('degree') or '',
+            'n_members':          r.get('member_gene_count') or r.get('n_members') or r.get('degree') or '0',
             'degree_norm':        f"{r['_dn']:.6e}",
             'null_calibrated':    str(r['_cal']),
             'null_z':             f"{nz:.3f}"  if nz  is not None else 'NaN',
@@ -203,6 +204,9 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         '**Do not** critique the statistical method, the BIFO algorithm, or the analysis '
         'pipeline unless the user explicitly asks. Treat the results as valid output from '
         'a peer-reviewed computational method and focus on biological interpretation.\n\n'
+        '**Important:** LLM outputs are intended for exploratory biological interpretation '
+        'only and are not part of any quantitative evaluation. The LLM is not used for '
+        'scoring, ranking, or statistical inference.\n\n'
         'The user may be a biologist, clinician, or computational scientist. '
         'Do not assume prior knowledge of graph algorithms or bioinformatics. '
         'The user may have questions specific to their own experimental system, '
@@ -265,15 +269,18 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
     L.append('\n---\n')
 
     L.append(f'## Key Findings\n\n**Significant pathways (q < 0.05):** {len(sig_rows)}\n')
+    sig_shown = set()
     if sig_rows:
         for r in sig_rows[:10]:
             L.append(f"- {r['pathway_name']} "
                      f"(rank {r['rank']}, null_z = {r['null_z']}, q = {r['empirical_q']})")
+            sig_shown.add(r['pathway_id'])
         L.append('')
     L.append('\n**Top 5 by null_z (strongest statistical enrichment):**\n')
     for r in top_nz:
-        L.append(f"- {r['pathway_name']} "
-                 f"(rank {r['rank']}, null_z = {r['null_z']}, q = {r['empirical_q']})")
+        if r['pathway_id'] not in sig_shown:
+            L.append(f"- {r['pathway_name']} "
+                     f"(rank {r['rank']}, null_z = {r['null_z']}, q = {r['empirical_q']})")
     L.append('\n---\n')
 
     L.append(

@@ -8,7 +8,7 @@ Code and data repository for:
 > *BIFO: A Biological Information Flow Ontology for Knowledge Graph-Directed Pathway Analysis of Rare Variant Cohort Data.*
 > Manuscript in preparation, 2026.
 
-BIFO defines admissible biological information flow on knowledge graphs, transforming them into directed propagation substrates for mechanistically grounded biological inference. BIFO operates on propagated signal rather than set membership, enabling inference over biological communication structure rather than direct overlap alone. Applied to variant-derived gene lists, it recovers ranked pathway hypotheses using personalized PageRank (PPR) propagation over the Data Distillery Knowledge Graph (DDKG).
+BIFO defines admissible biological information flow on knowledge graphs, transforming them into directed propagation substrates for mechanistically grounded biological inference. BIFO integrates propagated signal across biological relationships, including curated membership edges, rather than relying solely on direct gene-pathway overlap. Applied to variant-derived gene lists, it recovers ranked pathway hypotheses using personalized PageRank (PPR) propagation over the Data Distillery Knowledge Graph (DDKG).
 
 BIFO complements standard enrichment methods: Fisher enrichment identifies direct gene–pathway overlap, while BIFO identifies propagated signal across biological relationships. When both methods identify the same top pathway independently, their convergence provides strong validation of the biological signal.
 

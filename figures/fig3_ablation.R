@@ -159,9 +159,16 @@ rank_df <- rank_df %>%
 pD <- ggplot(rank_df, aes(x = method_label, y = rank_plot, fill = hi)) +
   geom_col(width = 0.55, color = "white", linewidth = 0.4) +
   geom_text(aes(label = label), vjust = -0.4, size = 3.2, fontface = "bold") +
+  annotate("text",
+           x        = "BIFO\nfull-arm",
+           y        = cilia_bifo_rank * 1.10,
+           label    = "null_z = 48.7",
+           size     = 3.0,
+           fontface = "italic",
+           color    = "grey30") +
   scale_fill_manual(values = c("TRUE" = "#2E75B6", "FALSE" = "#C8C8C8")) +
   scale_y_continuous(labels = comma,
-                     limits = c(0, max(rank_df$rank_plot) * 1.18)) +
+                     limits = c(0, max(rank_df$rank_plot) * 1.25)) +
   labs(title    = "D",
        subtitle = "WP_CILIOPATHIES rank — KF-CHD discovery mode\n(lower rank = better)",
        x = NULL, y = "Rank") +

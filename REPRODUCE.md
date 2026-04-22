@@ -565,3 +565,32 @@ All analysis parameters are documented in `BENCHMARK_MANIFEST.md`. Key settings:
 | Member null sampling | without replacement within null set |
 
 See `BENCHMARK_MANIFEST.md` for complete parameter documentation and expected output checksums.
+
+---
+
+## Generating Summary Output Files
+
+After running `score_pathways.py`, use `summarize_results.py` to produce two output files for each cohort or benchmark run:
+
+```bash
+python pipeline/summarize_results.py \
+    --scores        results/kf_chd/pathway_scores_standard.csv \
+    --seeds         data/cohorts/chd/kf_chd_seeds.txt \
+    --reference     data/cohorts/chd/kf_chd_cilia_reference.txt \
+    --cohort-name   "KF-CHD" \
+    --disease       "congenital heart disease" \
+    --n-probands    697 \
+    --outdir        results/kf_chd/
+```
+
+**Output 1: `pathway_results_summary.tsv`**
+Machine-readable table of all scored pathways with clean column names. Suitable for direct loading in R, Python, or Excel. One row per pathway, sorted by degree_norm rank. Includes rank, degree_norm, null_z, empirical_q, null_calibrated, member_mean_null_z, and in_reference columns.
+
+**Output 2: `pathway_results_llm.md`**
+Structured markdown document for input to a large language model (LLM). Contains a role instruction, biological context, column interpretation guide, top-50 results table, seed gene list, and suggested questions. Paste into ChatGPT, Claude, or any LLM to discuss the biological meaning of results without prior knowledge of BIFO.
+
+For the KF-CHD and KF-NBL cohorts, the seed files are:
+- `data/cohorts/chd/kf_chd_seeds.txt`
+- `data/cohorts/nbl/kf_nbl_seeds.txt`
+
+Run `python pipeline/summarize_results.py --help` for all options.

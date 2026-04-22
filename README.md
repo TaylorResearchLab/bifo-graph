@@ -24,6 +24,7 @@ bifo-graph/
 │   ├── baseline_enrichment.py   Enrichment baselines (Fisher, GSEA, degree overlap)
 │   ├── chd_resampling_exhaustive.py  Exhaustive CHD seed-split resampling (3,003 splits)
 │   ├── kf_resampling.py         Bootstrap resampling for KF cohort analyses
+│   ├── summarize_results.py     Generate script-ready TSV and LLM-ready markdown from scored results
 │   ├── seed_cui_lookup.py       Map gene symbols / HGNC IDs to UMLS CUIs
 │   ├── generate_export_cypher.py  Generate Neo4j export Cypher from seed list
 │   ├── build_cilia_reference.py  Build cilia reference pathway set
@@ -223,7 +224,17 @@ python pipeline/score_pathways.py \
 # (raw mechanistic edges + pathway membership edges combined). See REPRODUCE.md
 # for the exact commands used in the manuscript.
 
-# 3. Run baselines
+# 3. Generate summary output files
+python pipeline/summarize_results.py \
+  --scores      results/chd_benchmark/pathway_scores_standard.csv \
+  --seeds       data/benchmark/chd_seed_nodes.txt \
+  --reference   data/benchmark/chd_pathway_reference.txt \
+  --cohort-name "CHD benchmark" \
+  --outdir      results/chd_benchmark/
+# Produces pathway_results_summary.tsv (script-ready) and
+# pathway_results_llm.md (paste into any LLM for biological interpretation)
+
+# 4. Run baselines
 python pipeline/baseline_enrichment.py \
   --edges-merged data/benchmark/chd_curated_edges_raw.csv.zip \
   --node-index results/chd_benchmark/results_node_index.json \
@@ -281,6 +292,7 @@ bash run_test.sh
 | §6 Baseline enrichment | `pipeline/baseline_enrichment.py` |
 | §9 Exhaustive resampling | `pipeline/chd_resampling_exhaustive.py` |
 | §10 KF cohort analysis | `scripts/run_full_pipeline.sh`, `pipeline/kf_resampling.py` |
+| §11 Output files | `pipeline/summarize_results.py` |
 | §8.4 Empirical null models | `pipeline/score_pathways.py` (`--n-permutations`, `--null-type`) |
 
 ---

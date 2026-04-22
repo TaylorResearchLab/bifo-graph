@@ -53,6 +53,10 @@ def parse_args():
                    help='Disease or condition, e.g. "congenital heart disease"')
     p.add_argument('--n-probands',   type=int, default=None,
                    help='Number of probands in the cohort')
+    p.add_argument('--n-resolved-seeds', type=int, default=None,
+                   help='Number of seed genes resolved to graph CUIs (post-resolution). '
+                        'If provided, shown in output instead of raw seed file count. '
+                        'Use this to match the count used in the actual analysis.')
     p.add_argument('--outdir',       required=True,
                    help='Output directory')
     p.add_argument('--top-n-llm',    type=int, default=50,
@@ -155,9 +159,13 @@ def md_table(rows, cols):
 
 
 def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
-              n_probands, scores_path, top_n, include_degenerate, outpath):
+              n_probands, scores_path, top_n, include_degenerate, outpath,
+              n_resolved_seeds=None):
 
     n_seeds      = len(seed_ids)
+    n_display    = n_resolved_seeds if n_resolved_seeds is not None else n_seeds
+    seeds_note   = (f' ({n_seeds} in input file; {n_display} resolved to graph CUIs)'
+                    if n_resolved_seeds is not None else '')
     n_total      = len(summary)
     n_cal        = sum(1 for r in summary if r['_cal'])
     n_sig        = sum(1 for r in summary
@@ -221,7 +229,7 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
              f'- **Cohort:** {cohort_name}\n'
              f'- **Disease / condition:** {disease_str}\n'
              f'- **Cohort size:** {proband_str}\n'
-             f'- **Input genes (seeds):** {n_seeds}\n'
+             f'- **Input genes (seeds):** {n_display}{seeds_note}\n'
              f'- **Pathways scored:** {n_total} total; {n_cal} with valid null distribution\n'
              f'- **Significant pathways (q < 0.05):** {n_sig}\n'
              f'- **Analysis date:** {today}\n'
@@ -303,7 +311,7 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
 
     L.append(
         f'## Input Data Context\n\n'
-        f'### Seed genes (input to BIFO) — {n_seeds} total\n\n'
+        f'### Seed genes (input to BIFO) — {n_display} resolved{seeds_note}\n\n'
         'These genes were used as the starting point for signal propagation. '
         'They are typically genes carrying rare variants in the cohort, or genes '
         'of interest in the experimental system.\n\n'
@@ -356,6 +364,7 @@ def main():
         scores_path        = args.scores,
         top_n              = args.top_n_llm,
         include_degenerate = args.include_degenerate,
+        n_resolved_seeds   = args.n_resolved_seeds,
         outpath            = os.path.join(args.outdir, 'pathway_results_llm.md'),
     )
     print("Done.")

@@ -20,7 +20,7 @@
 | gene_universe | all C-prefixed nodes (~13,000) | `pipeline/baseline_enrichment.py` |
 | pathway_direction | unidirectional gene→pathway (BIFO spec v0.02) | `config/bifo_mapping.yaml` |
 
-## Expected output metrics (benchmark run V6)
+## Expected output metrics
 
 ### Conditioning (CHD curated, 174,352 merged input edges)
 

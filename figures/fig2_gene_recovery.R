@@ -1,5 +1,5 @@
 # =============================================================================
-# Figure 2: Four-arm gene-level recovery — curated CHD benchmark
+# Figure 2: Four-arm gene-level recovery, curated CHD benchmark
 #
 # Panels:
 #   A: AUROC by arm
@@ -20,9 +20,9 @@ library(patchwork)
 library(scales)
 library(jsonlite)
 
-BASE    <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
-CURATED <- file.path(BASE, "results/chd_curated")
-OUTDIR  <- file.path(BASE, "figures")
+BASE    <- here::here()
+CURATED <- here::here("results/chd_curated")
+OUTDIR  <- here::here("figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
 fix_json <- function(path) {
@@ -112,7 +112,7 @@ pA <- ggplot(df, aes(x = ppr_label, y = auroc, fill = ppr_label)) +
   scale_y_continuous(limits = c(0.97, 1.005),
                      breaks = c(0.97, 0.98, 0.99, 1.00),
                      oob = squish) +
-  labs(title = "A", subtitle = "AUROC — held-out gene recovery",
+  labs(title = "A", subtitle = "AUROC, held-out gene recovery",
        x = NULL, y = "AUROC") +
   theme_bifo
 
@@ -125,11 +125,11 @@ pB <- ggplot(df, aes(x = ppr_label, y = auprc, fill = ppr_label)) +
   facet_wrap(~ graph_label, nrow = 1) +
   scale_fill_manual(values = arm_colors) +
   scale_y_continuous(limits = c(0, auprc_max * 1.25)) +
-  labs(title = "B", subtitle = "AUPRC — held-out gene recovery",
+  labs(title = "B", subtitle = "AUPRC, held-out gene recovery",
        x = NULL, y = "AUPRC") +
   theme_bifo
 
-# Panel C: Localization (lower = better — seeds more tightly localized)
+# Panel C: Localization (lower = better, seeds more tightly localized)
 pC <- ggplot(df, aes(x = ppr_label, y = localization, fill = ppr_label)) +
   geom_col(width = 0.6, color = "white", linewidth = 0.4) +
   geom_text(aes(label = sprintf("%.4f", localization)),
@@ -138,7 +138,7 @@ pC <- ggplot(df, aes(x = ppr_label, y = localization, fill = ppr_label)) +
   scale_fill_manual(values = arm_colors) +
   scale_y_continuous(limits = c(0, max(df$localization, na.rm=TRUE) * 1.25)) +
   labs(title = "C",
-       subtitle = "Localization — mean held-out rank / n nodes\n(lower = more concentrated near seeds)",
+       subtitle = "Localization, mean held-out rank / n nodes\n(lower = more concentrated near seeds)",
        x = NULL, y = "Localization") +
   theme_bifo
 
@@ -151,7 +151,7 @@ pD <- ggplot(df, aes(x = ppr_label, y = entropy, fill = ppr_label)) +
   scale_fill_manual(values = arm_colors) +
   scale_y_continuous(limits = c(0, max(df$entropy, na.rm=TRUE) * 1.15)) +
   labs(title = "D",
-       subtitle = "PPR score entropy — bits\n(lower = more concentrated signal)",
+       subtitle = "PPR score entropy, bits\n(lower = more concentrated signal)",
        x = NULL, y = "Entropy (bits)") +
   theme_bifo
 
@@ -179,7 +179,7 @@ get_legend <- function(p) {
 # ── Assemble ──────────────────────────────────────────────────────────────────
 fig2 <- (pA / pB / pC / pD) +
   plot_annotation(
-    title    = "Figure 2. Four-arm gene-level recovery — curated CHD benchmark",
+    title    = "Figure 2. Four-arm gene-level recovery, curated CHD benchmark",
     subtitle = paste0(
       "Each panel shows four PPR propagation arms (columns) across three graph configurations (facets).\n",
       "Graph arms: Full = all BIFO flow classes; Ablation = no Pathway Contribution bridge edges; ",

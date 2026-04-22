@@ -1,11 +1,11 @@
 # =============================================================================
-# Figure 3: Three-arm pathway ablation — BIFO main result
+# Figure 3: Three-arm pathway ablation, BIFO main result
 #
 # Panels:
-#   A: P@10 by arm — curated CHD benchmark (full / ablation / mech-only)
+#   A: P@10 by arm, curated CHD benchmark (full / ablation / mech-only)
 #   B: Enrichment@10 by arm
 #   C: Rank improvement (raw PPR rank − conditioned PPR rank) by arm
-#   D: WP_CILIOPATHIES rank across five methods — KF-CHD discovery
+#   D: WP_CILIOPATHIES rank across five methods, KF-CHD discovery
 #
 # Output: figures/fig3_ablation.png
 # =============================================================================
@@ -17,10 +17,10 @@ library(patchwork)
 library(scales)
 library(jsonlite)
 
-BASE    <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
-CURATED <- file.path(BASE, "bifo-graph/results/chd_benchmark")
-KF_CHD  <- file.path(BASE, "bifo-graph/results/kf_chd")
-OUTDIR  <- file.path(BASE, "figures")
+BASE    <- here::here()
+CURATED <- here::here("bifo-graph/results/chd_benchmark")
+KF_CHD  <- here::here("bifo-graph/results/kf_chd")
+OUTDIR  <- here::here("figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
 # ── Utility ───────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ pC <- ggplot(curated_df, aes(x = arm, y = rank_imp, fill = arm)) +
        x = NULL, y = "Rank positions gained") +
   theme_bifo
 
-# ── Panel D: WP_CILIOPATHIES rank by method — KF-CHD ─────────────────────────
+# ── Panel D: WP_CILIOPATHIES rank by method, KF-CHD ─────────────────────────
 bc_csv <- read.csv(file.path(KF_CHD, "baseline_comparison.csv"),
                    stringsAsFactors = FALSE)
 
@@ -170,7 +170,7 @@ pD <- ggplot(rank_df, aes(x = method_label, y = rank_plot, fill = hi)) +
   scale_y_continuous(labels = comma,
                      limits = c(0, max(rank_df$rank_plot) * 1.25)) +
   labs(title    = "D",
-       subtitle = "WP_CILIOPATHIES rank — KF-CHD discovery mode\n(lower rank = better)",
+       subtitle = "WP_CILIOPATHIES rank, KF-CHD discovery mode\n(lower rank = better)",
        x = NULL, y = "Rank") +
   theme_classic(base_size = 12) +
   theme(legend.position = "none",
@@ -184,7 +184,7 @@ fig3 <- (pA | pB | pC) / pD +
   plot_annotation(
     title    = "Figure 3. BIFO conditioning enables pathway-level signal recovery",
     subtitle = paste0(
-      "Top row: curated CHD benchmark (550 pathways, 36-pathway CHD reference) — ",
+      "Top row: curated CHD benchmark (550 pathways, 36-pathway CHD reference); ",
       "full BIFO arm vs. ablation (no Pathway Contribution bridge edges) vs. mechanistic-only.\n",
       "Bottom: WP_CILIOPATHIES rank under five enrichment methods, KF-CHD cohort ",
       "(1,276 variant genes, ",

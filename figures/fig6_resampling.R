@@ -1,5 +1,5 @@
 # =============================================================================
-# Figure 6: CHD resampling distribution — curated benchmark
+# Figure 6: CHD resampling distribution, curated benchmark
 #
 # Panels:
 #   A: P@10 distribution across 3,003 splits (violin + box; primary split marked)
@@ -8,7 +8,7 @@
 #   D: BIFO AP vs Fisher AP scatter per split
 #
 # Data: results/chd_curated/resampling_summary.json
-#       (no per-split CSV needed — summary stats sufficient for A-C)
+#       (no per-split CSV needed, summary stats sufficient for A-C)
 #
 # Output: figures/fig6_resampling.png
 # =============================================================================
@@ -20,9 +20,9 @@ library(patchwork)
 library(scales)
 library(jsonlite)
 
-BASE    <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
-CURATED <- file.path(BASE, "results/chd_curated")
-OUTDIR  <- file.path(BASE, "figures")
+BASE    <- here::here()
+CURATED <- here::here("results/chd_curated")
+OUTDIR  <- here::here("figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
 fix_json <- function(path) {
@@ -67,7 +67,7 @@ if (has_csv) {
   message("  Columns: ", paste(names(splits_df), collapse = ", "))
   message("  Rows: ", nrow(splits_df))
 } else {
-  message("No per-split CSV found — using summary stats only")
+  message("No per-split CSV found; using summary stats only")
   splits_df <- NULL
 }
 
@@ -100,7 +100,7 @@ if (!is.null(splits_df)) {
                        breaks = seq(0, 1, 0.2),
                        labels = percent_format(accuracy = 1)) +
     labs(title    = "A",
-         subtitle = sprintf("P@10 — %s splits", comma(n_splits)),
+         subtitle = sprintf("P@10, %s splits", comma(n_splits)),
          x = NULL, y = "P@10") +
     theme_classic(base_size = 11) +
     theme(axis.text.x  = element_blank(),
@@ -149,7 +149,7 @@ if (!is.null(splits_df)) {
              label = sprintf("100%% splits\nrank imp > 0\n(n=%s)", comma(n_splits)),
              size = 3, color = "grey30") +
     labs(title    = "C",
-         subtitle = "Rank improvement — raw PPR rank minus conditioned PPR rank",
+         subtitle = "Rank improvement, raw PPR rank minus conditioned PPR rank",
          x = NULL, y = "Rank positions gained") +
     theme_classic(base_size = 11) +
     theme(axis.text.x   = element_blank(),
@@ -232,7 +232,7 @@ if (!is.null(splits_df)) {
             plot.subtitle = element_text(size = 9, color = "grey40"))
   }
 
-  pA <- make_panel("BIFO P@10",        "A", sprintf("P@10 — %s splits\n(%.1f%% \u2265 0.30; %.1f%% \u2265 0.50)",
+  pA <- make_panel("BIFO P@10",        "A", sprintf("P@10, %s splits\n(%.1f%% \u2265 0.30; %.1f%% \u2265 0.50)",
                                                      comma(n_splits),
                                                      100 * robust$bifo_p10_ge_0.3 / n_splits,
                                                      100 * robust$bifo_p10_ge_0.5 / n_splits),
@@ -240,7 +240,7 @@ if (!is.null(splits_df)) {
   pB <- make_panel("BIFO AP",          "B", "BIFO Average Precision", "AP")
   pC <- make_panel("Fisher AP",        "C", "Seed Fisher Average Precision", "AP")
   pD <- make_panel("Rank improvement", "D",
-                   sprintf("Rank improvement — %s/%s splits positive (100%%)",
+                   sprintf("Rank improvement, %s/%s splits positive (100%%)",
                            comma(robust$rank_imp_positive), comma(n_splits)),
                    "Rank positions gained")
 }
@@ -258,7 +258,7 @@ rob_text <- sprintf(
 # ── Assemble ──────────────────────────────────────────────────────────────────
 fig6 <- (pA | pB) / (pC | pD) +
   plot_annotation(
-    title    = "Figure 6. BIFO pathway recovery is stable across 3,003 seed partitions — curated CHD benchmark",
+    title    = "Figure 6. BIFO pathway recovery is stable across 3,003 seed partitions, curated CHD benchmark",
     subtitle = paste0(
       rob_text, "\n",
       "Each split: 10 seeds / 5 held-out genes from 15 curated CHD genes. ",

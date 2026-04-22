@@ -1,11 +1,11 @@
 # =============================================================================
-# Figure 5: C4 pathway-split controls — Notch and MAPK
+# Figure 5: C4 pathway-split controls, Notch and MAPK
 #
 # Panels:
-#   A: P@10 — Notch vs MAPK
-#   B: Enrichment@10 — Notch vs MAPK
-#   C: Mean CHD pathway rank — conditioned vs raw (both controls)
-#   D: Rank improvement — Notch vs MAPK
+#   A: P@10, Notch vs MAPK
+#   B: Enrichment@10, Notch vs MAPK
+#   C: Mean CHD pathway rank, conditioned vs raw (both controls)
+#   D: Rank improvement, Notch vs MAPK
 #
 # Data: results/chd_curated/c4_notch/pathway_metrics.json
 #       results/chd_curated/c4_mapk/pathway_metrics.json
@@ -19,9 +19,9 @@ library(patchwork)
 library(scales)
 library(jsonlite)
 
-BASE    <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
-CURATED <- file.path(BASE, "results/chd_curated")
-OUTDIR  <- file.path(BASE, "figures")
+BASE    <- here::here()
+CURATED <- here::here("results/chd_curated")
+OUTDIR  <- here::here("figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
 fix_json <- function(path) {
@@ -34,6 +34,11 @@ fix_json <- function(path) {
 
 pm_notch <- fix_json(file.path(CURATED, "c4_notch/pathway_metrics.json"))
 pm_mapk  <- fix_json(file.path(CURATED, "c4_mapk/pathway_metrics.json"))
+
+# Load CHD benchmark metrics for cross-reference in subtitle
+CHD_BENCH <- here::here("bifo-graph/results/chd_benchmark")
+pm_chd    <- fix_json(file.path(CHD_BENCH, "pathway_metrics_full.json"))
+chd_rank_imp <- sprintf("+%.1f", pm_chd$metrics$rank_improvement_cond_vs_raw)
 
 # Also load c4 results.json files for gene-level stats
 rn <- fix_json(file.path(CURATED, "c4_notch/results.json"))
@@ -109,7 +114,7 @@ pB <- ggplot(c4_df, aes(x = control, y = enrich10, fill = control)) +
        x = NULL, y = "Enrichment@10") +
   theme_c4
 
-# Panel C: Mean rank conditioned vs raw — grouped bars
+# Panel C: Mean rank conditioned vs raw, grouped bars
 rank_long <- c4_df %>%
   select(control, mean_cond, mean_raw) %>%
   pivot_longer(cols = c(mean_cond, mean_raw),
@@ -132,7 +137,7 @@ pC <- ggplot(rank_long,
   scale_y_continuous(limits = c(0, max(rank_long$mean_rank) * 1.25),
                      labels = comma) +
   labs(title    = "C",
-       subtitle = "Mean CHD pathway rank — conditioned vs raw PPR\n(lower = better)",
+       subtitle = "Mean CHD pathway rank, conditioned vs raw PPR\n(lower = better)",
        x = NULL, y = "Mean rank") +
   theme_classic(base_size = 12) +
   theme(legend.position  = "bottom",
@@ -166,7 +171,7 @@ mapk_ref    <- c4_df$n_reference[c4_df$task == "Orthogonal"]
 # ── Assemble ──────────────────────────────────────────────────────────────────
 fig5 <- (pA | pB) / (pC | pD) +
   plot_annotation(
-    title    = "Figure 5. C4 pathway-split controls — curated CHD benchmark",
+    title    = "Figure 5. C4 pathway-split controls, curated CHD benchmark",
     subtitle = paste0(
       "Two pathway-family controls using seeds drawn from curated pathway gene lists rather\n",
       "than the CHD variant gene pool.\n",
@@ -179,7 +184,7 @@ fig5 <- (pA | pB) / (pC | pD) +
       "C/D: With within-family seeds, raw PPR outranks conditioned PPR for the source family\n",
       "(negative rank improvement in both controls). This is the expected mechanism: BIFO\n",
       "conditioning redistributes rank mass toward cross-family bridges, which helps with\n",
-      "heterogeneous seed sets (see Fig 3: +99.1 rank imp for curated CHD) but slightly\n",
+      paste0("heterogeneous seed sets (see Fig 3: ", chd_rank_imp, " rank imp for curated CHD) but slightly\n"),
       "dilutes within-family concentration here."
     ),
     theme = theme(

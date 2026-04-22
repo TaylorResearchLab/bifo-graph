@@ -1,9 +1,9 @@
 # =============================================================================
-# Figure 4: Baseline method comparison heatmap — KF-CHD and KF-NBL
+# Figure 4: Baseline method comparison heatmap, KF-CHD and KF-NBL
 #
 # Panels:
-#   A: KF-CHD heatmap — method × metric
-#   B: KF-NBL heatmap — method × metric
+#   A: KF-CHD heatmap, method × metric
+#   B: KF-NBL heatmap, method × metric
 #
 # Data: kf_{cohort}_results/baseline_comparison.json
 # Output: figures/fig4_baseline_heatmap.png
@@ -16,7 +16,7 @@ library(patchwork)
 library(scales)
 library(jsonlite)
 
-BASE   <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
+BASE   <- here::here()
 OUTDIR <- file.path(BASE, "figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
@@ -137,11 +137,11 @@ pNBL <- make_heatmap(df_long, "KF-NBL")
 
 fig4 <- pCHD / pNBL +
   plot_annotation(
-    title    = "Figure 4. Baseline enrichment method comparison — KF-CHD and KF-NBL cohorts",
+    title    = "Figure 4. Baseline enrichment method comparison, KF-CHD and KF-NBL cohorts",
     subtitle = paste0(
       "Heatmap of five enrichment methods across five performance metrics ",
       "(colour scaled within each metric; darker = better).\n",
-      "Metrics evaluated against the 17-pathway cilia reference set. ",
+      "Metrics evaluated against the 16-pathway cilia reference set. ",
       "Mean Ref Rank: mean rank of reference pathways (lower = better, colour inverted).\n",
       "Note: WP_CILIOPATHIES ranks 1st under Seed Fisher (corrected) in both cohorts; BIFO ranks 43rd/2,130 (CHD) and 3rd/2,196 (NBL). ",
       "in both cohorts; see Table 8.1 for per-pathway ranks."

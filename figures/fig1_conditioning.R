@@ -1,8 +1,8 @@
 # =============================================================================
-# Figure 1: BIFO conditioning coverage — edge funnel and flow class distribution
+# Figure 1: BIFO conditioning coverage, edge funnel and flow class distribution
 #
 # Panels:
-#   A: Edge funnel — input → kept → propagating (stacked bar / waterfall)
+#   A: Edge funnel, input → kept → propagating (stacked bar / waterfall)
 #   B: Dropped edge breakdown by reason
 #   C: Flow class distribution of conditioned propagating edges
 #   D: Node resolution coverage
@@ -18,9 +18,9 @@ library(patchwork)
 library(scales)
 library(jsonlite)
 
-BASE    <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
-CURATED <- file.path(BASE, "results/chd_curated")
-OUTDIR  <- file.path(BASE, "figures")
+BASE    <- here::here()
+CURATED <- here::here("results/chd_curated")
+OUTDIR  <- here::here("figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
 fix_json <- function(path) {
@@ -67,7 +67,7 @@ pA <- ggplot(funnel_df, aes(x = stage, y = count)) +
   scale_y_continuous(labels = comma,
                      limits = c(0, cov$total_concept_edges * 1.18)) +
   labs(title    = "A",
-       subtitle = "Edge funnel — input to propagating",
+       subtitle = "Edge funnel, input to propagating",
        x = NULL, y = "Edge count") +
   theme_classic(base_size = 11) +
   theme(plot.title    = element_text(face = "bold", size = 13),
@@ -134,7 +134,7 @@ pC <- ggplot(flow_df, aes(x = count, y = flow_class, fill = is_bridge)) +
   scale_x_continuous(labels = comma,
                      limits = c(0, max(flow_df$count) * 1.35)) +
   labs(title    = "C",
-       subtitle = "Flow class distribution — conditioned propagating edges\n(blue = Pathway Contribution bridge edges)",
+       subtitle = "Flow class distribution, conditioned propagating edges\n(blue = Pathway Contribution bridge edges)",
        x = "Edge count", y = NULL) +
   theme_classic(base_size = 11) +
   theme(legend.position = "none",
@@ -171,7 +171,7 @@ pD <- ggplot(node_df, aes(x = category, y = count, fill = category)) +
 fig1 <- ((pA | pB | pD) / pC) +
   plot_layout(heights = c(1, 1.2)) +
   plot_annotation(
-    title    = "Figure 1. BIFO conditioning coverage — curated CHD benchmark graph",
+    title    = "Figure 1. BIFO conditioning coverage, curated CHD benchmark graph",
     subtitle = paste0(
       "Input: ", comma(cov$total_concept_edges),
       " merged edges (94,790 seed\u2194hop1 + 79,562 pathway membership).\n",

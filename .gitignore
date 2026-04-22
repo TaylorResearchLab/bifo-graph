@@ -25,3 +25,5 @@ results/chd_benchmark/results_*_scores_meta.npy
 results/chd_benchmark/results_*_scores_rand.npy
 results/kf_chd/results_kept_edges.csv
 results/kf_nbl/results_kept_edges.csv
+results/kf_chd/edges_all_noncc.csv
+results/kf_nbl/edges_all_noncc.csv

@@ -1,11 +1,11 @@
 # =============================================================================
-# Figure 8: Cross-cohort convergence — KF-CHD and KF-NBL
+# Figure 8: Cross-cohort convergence, KF-CHD and KF-NBL
 #
 # Panels:
-#   A: WP_CILIOPATHIES rank — BIFO and Fisher, CHD vs NBL (bar)
+#   A: WP_CILIOPATHIES rank, BIFO and Fisher, CHD vs NBL (bar)
 #   B: BIFO rank scatter CHD vs NBL (all pathways; cilia highlighted)
-#   C: Cilia pathway cluster ranks — dot plot CHD vs NBL
-#   D: Bootstrap resampling — BIFO vs Fisher P@10 by seed size
+#   C: Cilia pathway cluster ranks, dot plot CHD vs NBL
+#   D: Bootstrap resampling, BIFO vs Fisher P@10 by seed size
 #
 # Output: figures/fig8_crosscohort.png
 # =============================================================================
@@ -19,10 +19,10 @@ library(ggrepel)
 library(stringr)
 library(readr)
 
-BASE    <- "/mnt/isilon/taylor_lab/data/projects/BIFO_2026"
-CHD_DIR <- file.path(BASE, "bifo-graph/results/kf_chd")
-NBL_DIR <- file.path(BASE, "bifo-graph/results/kf_nbl")
-OUTDIR  <- file.path(BASE, "figures")
+BASE    <- here::here()
+CHD_DIR <- here::here("bifo-graph/results/kf_chd")
+NBL_DIR <- here::here("bifo-graph/results/kf_nbl")
+OUTDIR  <- here::here("figures")
 dir.create(OUTDIR, showWarnings = FALSE)
 
 CILIA_TERMS <- c("CILIOPATHIES", "CILIUM", "CILIA", "CILIARY",
@@ -88,7 +88,7 @@ pA <- ggplot(rank_df_A,
   scale_fill_manual(values = cohort_colors, name = NULL) +
   scale_y_continuous(limits = c(0, max(rank_df_A$rank) * 1.2), labels = comma) +
   labs(title    = "A",
-       subtitle = "WP_CILIOPATHIES rank — BIFO and Fisher",
+       subtitle = "WP_CILIOPATHIES rank, BIFO and Fisher",
        x = NULL, y = "Rank (lower = better)") +
   theme_classic(base_size = 11) +
   theme(legend.position = "bottom",
@@ -144,7 +144,7 @@ pB <- ggplot(shared %>% filter(avg_rank <= 3000),
         plot.title    = element_text(face = "bold", size = 13),
         plot.subtitle = element_text(size = 9, color = "grey40"))
 
-# ── Panel C: Cilia cluster ranks — dot plot ────────────────────────────────────
+# ── Panel C: Cilia cluster ranks, dot plot ────────────────────────────────────
 cilia_shared <- shared %>%
   filter(cilia) %>%
   select(short_name, chd_rank, nbl_rank) %>%
@@ -174,7 +174,7 @@ pC <- ggplot(cilia_shared,
   scale_x_continuous(labels = comma,
                      limits = c(0, NA)) +
   labs(title    = "C",
-       subtitle = "Cilia pathway cluster — BIFO rank in both cohorts",
+       subtitle = "Cilia pathway cluster, BIFO rank in both cohorts",
        x = "BIFO rank (lower = better)", y = NULL) +
   theme_classic(base_size = 10) +
   theme(legend.position = "bottom",
@@ -230,7 +230,7 @@ pD <- ggplot(rs_all, aes(x = seed_label, y = p10,
                      breaks = seq(0, 1, 0.2),
                      labels = percent_format(accuracy = 1)) +
   labs(title    = "D",
-       subtitle = paste0("Bootstrap resampling: P@10 vs 17-pathway cilia reference\n",
+       subtitle = paste0("Bootstrap resampling: P@10 vs 16-pathway cilia reference\n",
                          "(500 runs/seed size; dashed/dotted lines = primary run P@10)"),
        x = "Random seed sample size", y = "P@10") +
   theme_classic(base_size = 11) +
@@ -248,7 +248,7 @@ fig8 <- (pA | pB) / (pC | pD) +
       "A: WP_CILIOPATHIES ranks first under Seed Fisher in both cohorts; BIFO ranks 43rd/2,130 (CHD) and 3rd/2,196 (NBL).\n",
       "B: BIFO pathway ranks are concordant across cohorts; cilia pathways (red) cluster in the top ranks in both.\n",
       "C: All detected cilia pathways rank in the top half of the scored universe in both cohorts.\n",
-      "D: Cilia signal requires full cohort-scale seed sets — ",
+      "D: Cilia signal requires full cohort-scale seed sets; ",
       "neither method recovers it reliably from n=10-30 random genes."
     ),
     theme = theme(

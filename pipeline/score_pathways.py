@@ -721,11 +721,15 @@ def run_empirical_null(
     random_seed: int = 42,
 ) -> np.ndarray:
     """
-    Run N permutation PPR runs with matched random seed sets.
+    Seed-permutation null (--null-type seed-permutation).
 
-    The conditioned PPR operator is rebuilt from kept_edges.csv (Option B):
-    no serialized matrix artifacts required. This ensures that the null
-    model uses exactly the same propagation graph as the observed scoring.
+    Alternative to the default membership-rewiring null. Runs PPR N times
+    with matched random seed sets drawn from eligible pathway-connected genes,
+    keeping the graph structure fixed. Called only when --null-type
+    seed-permutation is specified; the default null is run_membership_rewiring_null().
+
+    The conditioned PPR operator is rebuilt from kept_edges.csv:
+    no serialized matrix artifacts required.
 
     Parameters
     ----------

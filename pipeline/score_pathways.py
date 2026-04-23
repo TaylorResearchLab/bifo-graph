@@ -14,9 +14,9 @@ produced by bifo_conditioning.py and applies pathway-level aggregation.
 
 For empirical null scoring (--n-permutations > 0), it rebuilds the
 conditioned PPR operator from kept_edges.csv and runs N permutation PPR
-runs with matched random seed sets drawn from eligible pathway-connected
-genes. This requires no new artifacts beyond what bifo_conditioning.py
-already produces.
+runs using degree-preserving bridge edge rewiring (default) or matched
+random seed sets (--null-type seed-permutation). This requires no new
+artifacts beyond what bifo_conditioning.py already produces.
 
 Five scoring variants
 ---------------------
@@ -32,9 +32,16 @@ Five scoring variants
 Empirical null model (degree_norm only)
 ----------------------------------------
 When --n-permutations > 0, an empirical null is computed by running PPR
-N times with matched random seed sets drawn from genes that are:
-  (a) present in the conditioned propagation graph
-  (b) connected to at least one scored pathway via membership edges
+N times using degree-preserving bridge edge rewiring (default,
+--null-type membership-rewiring). For each permutation, Pathway
+Contribution (bridge) edges are rewired via random endpoint swaps that
+preserve each pathway's member count and each gene's pathway membership
+count exactly. PPR is rerun on the rewired graph with the original seeds
+and degree_norm scores are recomputed for all pathways.
+
+An alternative seed-permutation null (--null-type seed-permutation) draws
+matched random seed sets from eligible pathway-connected genes instead of
+rewiring edges.
 
 For each pathway, the null distribution of degree_norm scores is used to
 compute a finite-sample-corrected empirical p-value:
@@ -44,7 +51,8 @@ and a BH-adjusted q-value across all tested pathways.
 Pathways with q < 0.05 (or user-specified threshold) are considered
 statistically supported under this empirical null. This provides a
 principled usability criterion: a pathway is actionable when its
-propagation score exceeds what matched random seed sets typically achieve.
+propagation score exceeds what degree-preserving random rewiring of its
+membership typically achieves.
 
 Per-pathway diagnostics
 -----------------------

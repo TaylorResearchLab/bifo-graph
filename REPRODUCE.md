@@ -105,7 +105,7 @@ python3 pipeline/score_pathways.py \
   --edges-conditioned results/chd_benchmark/chd_kept_edges.csv \
   --scores-cond       results/chd_benchmark/results_full_scores_cond.npy \
   --scores-raw        results/chd_benchmark/results_full_scores_raw.npy \
-  --node-index        results/chd_benchmark/results_full_node_index.json \
+  --node-index        results/chd_benchmark/results_node_index.json \
   --seed-nodes        data/benchmark/chd_seed_nodes.txt \
   --chd-pathways      data/benchmark/chd_pathway_reference.txt \
   --min-members 8 --max-members 300 \

@@ -284,8 +284,8 @@ bash run_test.sh
 
 | Methods section | Script / component |
 |-----------------|-------------------|
-| §1 Knowledge graph source | `cypher/` export queries, `pipeline/clean_cypher_output.py` |
-| §2 BIFO conditioning | `pipeline/bifo_conditioning.py`, `config/bifo_mapping.yaml` |
+| §1 BIFO conditioning | `pipeline/bifo_conditioning.py`, `config/bifo_mapping.yaml` |
+| §2 Knowledge graph source | `cypher/` export queries, `pipeline/clean_cypher_output.py` |
 | §3 Personalized PageRank | `pipeline/bifo_conditioning.py` (PPR loop) |
 | §4 Pathway scoring | `pipeline/score_pathways.py` |
 | §5 Benchmark design | `data/benchmark/`, `BENCHMARK_MANIFEST.md` |

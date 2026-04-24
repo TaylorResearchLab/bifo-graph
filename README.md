@@ -336,7 +336,7 @@ Output columns: `empirical_q`, `null_z` (pathway-node null); `member_mean_q`, `m
 
 The pathway-node null and member-level null test distinct quantities: the former evaluates pathway-node signal accumulation, while the latter evaluates concentration of propagated signal within pathway member genes.
 
-See Methods §8.4 and REPRODUCE.md for full validation results.
+See Methods §5 and REPRODUCE.md for full validation results.
 
 ---
 

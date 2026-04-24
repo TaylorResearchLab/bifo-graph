@@ -52,6 +52,16 @@ def parse_args():
     p.add_argument('--nodes',        default=None,
                    help='nodes_clean_noncc.csv — used to map CUIs to gene symbols '
                         'in seed_members and contributing_seeds columns. Optional.')
+    p.add_argument('--member-scores', default=None,
+                   help='pathway_member_scores.tsv from score_pathways.py '
+                        '--out-member-scores. Optional. Adds seed_member_scores column '
+                        '(ppr_score_norm values parallel to seed_members, sorted by '
+                        'PPR score descending).')
+    p.add_argument('--influential-nodes', default=None,
+                   help='pathway_influential_nodes.tsv from score_pathways.py '
+                        '--out-influential-nodes. Optional. Adds influential_nodes_local '
+                        '(z_within_pathway > 1.96) and influential_nodes_global '
+                        '(z_global > 1.96) columns.')
     p.add_argument('--reference',    default=None,
                    help='Text file of reference pathway CUIs (one per line)')
     p.add_argument('--cohort-name',  default='BIFO run',
@@ -85,6 +95,124 @@ def load_lines(path):
         return {l.split()[0] for l in f if l.strip() and not l.startswith('#')}
 
 
+def load_member_scores_file(path):
+    """
+    Load pathway_member_scores.tsv from score_pathways.py --out-member-scores.
+    Returns {pathway_id: [(member_gene_name, ppr_score_norm), ...]} sorted by
+    ppr_score_norm descending. Only rows for genes that appear in seed_members
+    are used by summarize_results — the full file is kept for other uses.
+    """
+    if not path:
+        return {}
+    result = {}
+    try:
+        with open(path, newline='') as f:
+            for row in csv.DictReader(f, delimiter='\t'):
+                pid  = row.get('pathway_id', '').strip()
+                gene = row.get('member_gene_name', row.get('member_gene', '')).strip()
+                norm = row.get('ppr_score_norm', '')
+                if pid and gene and norm:
+                    result.setdefault(pid, []).append(
+                        (gene, float(norm) if norm else 0.0))
+        # Sort each pathway's list by ppr_score_norm descending
+        for pid in result:
+            result[pid].sort(key=lambda x: -x[1])
+    except FileNotFoundError:
+        print(f"WARNING: member-scores file not found: {path}",
+              file=__import__('sys').stderr)
+    return result
+
+
+def load_influential_nodes_file(path):
+    """
+    Load pathway_influential_nodes.tsv from score_pathways.py --out-influential-nodes.
+    Returns:
+      local_map  : {pathway_id: [node_name, ...]} where z_within_pathway > 1.96
+      global_map : {pathway_id: [node_name, ...]} where z_global > 1.96
+      z_stats    : {pathway_id: str} compact quantile summary of both z distributions,
+                   format: "local:n=N;max=X;p75=X;p50=X;p25=X | global:n=N;max=X;p75=X;p50=X;p25=X"
+    Both node lists sorted by their respective z-score descending.
+    The z_stats string is always populated (even when local/global lists are empty),
+    allowing users to distinguish "nothing passed threshold" from "file not loaded".
+    """
+    if not path:
+        return {}, {}, {}
+    local_map  = {}
+    global_map = {}
+    # Collect raw z-scores per pathway for quantile computation
+    z_loc_raw  = {}   # {pathway_id: [z_within, ...]}
+    z_glb_raw  = {}   # {pathway_id: [z_global, ...]}
+    Z_THRESH = 1.96
+    try:
+        with open(path, newline='') as f:
+            for row in csv.DictReader(f, delimiter='\t'):
+                pid   = row.get('pathway_id', '').strip()
+                name  = row.get('node_name',  row.get('node_id', '')).strip()
+                z_loc = row.get('z_within_pathway', '')
+                z_glb = row.get('z_global', '')
+                if not pid or not name:
+                    continue
+                try:
+                    zl = float(z_loc)
+                    z_loc_raw.setdefault(pid, []).append(zl)
+                    if zl > Z_THRESH:
+                        local_map.setdefault(pid, []).append((name, zl))
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    zg = float(z_glb)
+                    z_glb_raw.setdefault(pid, []).append(zg)
+                    if zg > Z_THRESH:
+                        global_map.setdefault(pid, []).append((name, zg))
+                except (ValueError, TypeError):
+                    pass
+        for pid in local_map:
+            local_map[pid].sort(key=lambda x: -x[1])
+        for pid in global_map:
+            global_map[pid].sort(key=lambda x: -x[1])
+    except FileNotFoundError:
+        print(f"WARNING: influential-nodes file not found: {path}",
+              file=__import__('sys').stderr)
+        return {}, {}, {}
+
+    # Build quantile summary strings
+    def _quantile(vals, q):
+        """Simple quantile without numpy — linear interpolation."""
+        s = sorted(vals)
+        n = len(s)
+        if n == 0:
+            return float('nan')
+        idx = q * (n - 1)
+        lo, hi = int(idx), min(int(idx) + 1, n - 1)
+        return s[lo] + (idx - lo) * (s[hi] - s[lo])
+
+    def _fmt(v):
+        return f"{v:.2f}"
+
+    z_stats = {}
+    all_pids = set(z_loc_raw) | set(z_glb_raw)
+    for pid in all_pids:
+        lv = z_loc_raw.get(pid, [])
+        gv = z_glb_raw.get(pid, [])
+        if lv:
+            ls = (f"local:n={len(lv)};max={_fmt(max(lv))};"
+                  f"p75={_fmt(_quantile(lv,0.75))};"
+                  f"p50={_fmt(_quantile(lv,0.50))};"
+                  f"p25={_fmt(_quantile(lv,0.25))}")
+        else:
+            ls = "local:n=0"
+        if gv:
+            gs = (f"global:n={len(gv)};max={_fmt(max(gv))};"
+                  f"p75={_fmt(_quantile(gv,0.75))};"
+                  f"p50={_fmt(_quantile(gv,0.50))};"
+                  f"p25={_fmt(_quantile(gv,0.25))}")
+        else:
+            gs = "global:n=0"
+        z_stats[pid] = f"{ls} | {gs}"
+
+    return local_map, global_map, z_stats
+
+
 def safe_float(val):
     try:
         f = float(val)
@@ -100,11 +228,21 @@ def safe_bool(val):
 
 
 def build_cui_to_symbol(nodes_csv):
-    """Build {CUI: symbol} from nodes CSV (plain or .gz). Returns empty dict if path is None."""
+    """
+    Build {CUI: symbol} from nodes CSV (plain or .gz). Returns empty dict if path is None.
+
+    Also returns a secondary dict {any_node_id: CUI} mapping every node's 'label'
+    field (which holds the source-vocabulary ID, e.g. 'HGNC:1097') back to its
+    CUI (node_id / concept_id). This reverse map is used by build_membership_map
+    to normalise gene member IDs from the edges file into CUIs regardless of which
+    ID scheme the edges file uses for gene nodes (C-prefixed CUI vs HGNC: vs other).
+    Call as: cui_to_symbol, nodeid_to_cui = build_cui_to_symbol(path)
+    """
     if not nodes_csv:
-        return {}
-    import csv as _csv, gzip, io
-    lookup = {}
+        return {}, {}
+    import csv as _csv, gzip
+    lookup = {}        # CUI  -> symbol
+    id_to_cui = {}     # any_node_id (label) -> CUI
     try:
         opener = gzip.open if nodes_csv.endswith('.gz') else open
         with opener(nodes_csv, 'rt', encoding='utf-8-sig') as f:
@@ -113,6 +251,7 @@ def build_cui_to_symbol(nodes_csv):
                        row.get('id') or '').strip()
                 sym = (row.get('name') or row.get('symbol') or
                        row.get('pref_term') or row.get('preferred_name') or '').strip()
+                label = (row.get('label') or '').strip()
                 # Skip header artifact rows
                 if not cid or cid.startswith('-') or cid == 'CUI':
                     continue
@@ -121,9 +260,12 @@ def build_cui_to_symbol(nodes_csv):
                     if sym.endswith(' gene'):
                         sym = sym[:-5].strip()
                     lookup[cid] = sym
+                # Build reverse map: label (e.g. 'HGNC:1097') -> CUI
+                if cid and label and label != cid:
+                    id_to_cui[label] = cid
     except FileNotFoundError:
         print(f"WARNING: nodes file not found: {nodes_csv}", file=__import__('sys').stderr)
-    return lookup
+    return lookup, id_to_cui
 
 
 MEMBERSHIP_PREDS_FWD = {
@@ -138,12 +280,19 @@ MEMBERSHIP_PREDS_REV = {
 }
 
 
-def build_membership_map(edges_csv, min_members=8, max_members=300):
+def build_membership_map(edges_csv, nodeid_to_cui=None, min_members=8, max_members=300):
     """
-    Build {pathway_id: frozenset(gene_ids)} from edges_merged.csv.
+    Build {pathway_id: frozenset(gene_CUIs)} from edges_merged.csv.
     Only processes membership predicates; applies size filter.
+
+    Gene member IDs from the edges file are normalised to CUIs using
+    nodeid_to_cui (the reverse map from build_cui_to_symbol). This handles
+    the case where MSIGDB/WikiPathways/Reactome membership edges store gene
+    nodes under HGNC: or other vocabulary IDs rather than C-prefixed CUIs,
+    which would otherwise prevent intersection with the seed CUI set.
     """
     import csv as _csv
+    norm = nodeid_to_cui or {}
     pw_to_genes = {}
     try:
         import gzip as _gzip
@@ -153,10 +302,16 @@ def build_membership_map(edges_csv, min_members=8, max_members=300):
                 pred = row.get('predicate', '').strip()
                 src  = row.get('source', row.get('subject', '')).strip()
                 tgt  = row.get('target', row.get('object', '')).strip()
+                # Strip trailing ' CUI' suffix from all node IDs
+                src_clean = src[:-4].strip() if src.endswith(' CUI') else src
+                tgt_clean = tgt[:-4].strip() if tgt.endswith(' CUI') else tgt
+                # Normalise gene member IDs to CUIs via reverse lookup
                 if pred in MEMBERSHIP_PREDS_FWD:
-                    pw_to_genes.setdefault(src, set()).add(tgt)
+                    gene_id = norm.get(tgt_clean, tgt_clean)
+                    pw_to_genes.setdefault(src_clean, set()).add(gene_id)
                 elif pred in MEMBERSHIP_PREDS_REV:
-                    pw_to_genes.setdefault(tgt, set()).add(src)
+                    gene_id = norm.get(src_clean, src_clean)
+                    pw_to_genes.setdefault(tgt_clean, set()).add(gene_id)
     except FileNotFoundError:
         print(f"WARNING: edges file not found: {edges_csv}", file=__import__('sys').stderr)
         return {}
@@ -166,9 +321,15 @@ def build_membership_map(edges_csv, min_members=8, max_members=300):
 
 
 def build_summary(rows, reference_ids, seed_ids=None, membership_map=None,
-                  cui_to_symbol=None):
+                  cui_to_symbol=None, member_scores_map=None,
+                  influential_local_map=None, influential_global_map=None,
+                  z_stats_map=None):
     seed_set = frozenset(seed_ids) if seed_ids else frozenset()
     sym = cui_to_symbol or {}
+    ms_map   = member_scores_map   or {}
+    inf_loc  = influential_local_map  or {}
+    inf_glb  = influential_global_map or {}
+    z_stats  = z_stats_map or {}
 
     def cuis_to_symbols(cui_str, delim='|'):
         """Convert pipe-separated CUI string to symbol string, falling back to CUI."""
@@ -180,6 +341,7 @@ def build_summary(rows, reference_ids, seed_ids=None, membership_map=None,
     def cui_set_to_symbols(cui_set):
         """Convert frozenset of CUIs to semicolon-separated symbol string."""
         return ';'.join(sorted(sym.get(c, c) for c in cui_set))
+
     for r in rows:
         r['_dn']  = safe_float(r.get('degree_norm', 0)) or 0.0
         r['_cal'] = safe_bool(r.get('null_calibrated', True))
@@ -193,24 +355,67 @@ def build_summary(rows, reference_ids, seed_ids=None, membership_map=None,
         mnz = safe_float(r.get('member_mean_null_z'))
         mq  = safe_float(r.get('member_mean_q'))
         cid = r.get('concept_id', '')
+
+        # seed_members: CUIs resolved to symbols, sorted by PPR score if available
+        raw_seed_member_cuis = (
+            membership_map.get(cid, frozenset()) & seed_set
+            if (membership_map is not None and seed_set) else frozenset()
+        )
+        # Build ordered seed member list: by ppr_score_norm desc if ms_map available,
+        # otherwise alphabetically
+        if ms_map and cid in ms_map:
+            # ms_map[cid] is [(gene_name, ppr_score_norm), ...] sorted desc
+            # Convert raw_seed_member_cuis to symbols for matching
+            seed_sym_set = {sym.get(c, c) for c in raw_seed_member_cuis}
+            ordered_seed_members = [
+                gene for gene, _ in ms_map[cid]
+                if gene in seed_sym_set
+            ]
+            # Append any seed members not in ms_map (shouldn't happen, but safe)
+            covered = set(ordered_seed_members)
+            for c in sorted(raw_seed_member_cuis):
+                s = sym.get(c, c)
+                if s not in covered:
+                    ordered_seed_members.append(s)
+            seed_members_str = ';'.join(ordered_seed_members)
+            # seed_member_scores: parallel ppr_score_norm values
+            ms_lookup = {gene: norm for gene, norm in ms_map[cid]}
+            seed_member_scores_str = ';'.join(
+                f"{ms_lookup.get(g, ''):.4f}" if ms_lookup.get(g) is not None else ''
+                for g in ordered_seed_members
+            )
+        else:
+            seed_members_str = cui_set_to_symbols(raw_seed_member_cuis)
+            seed_member_scores_str = ''
+
+        # influential nodes: z-thresholded, semicolon-separated node names
+        inf_local_str = ';'.join(
+            name for name, _ in inf_loc.get(cid, [])
+        )
+        inf_global_str = ';'.join(
+            name for name, _ in inf_glb.get(cid, [])
+        )
+
         summary.append({
-            'rank':               rank,
-            'pathway_name':       r.get('name', cid),
-            'pathway_id':         cid,
-            'source':             r.get('sab', ''),
-            'n_members':          r.get('member_gene_count') or r.get('n_members') or r.get('degree') or '0',
-            'degree_norm':        f"{r['_dn']:.6e}",
-            'null_calibrated':    str(r['_cal']),
-            'null_z':             f"{nz:.3f}"  if nz  is not None else 'NaN',
-            'empirical_q':        f"{eq:.4f}"  if eq  is not None else 'NaN',
-            'member_mean_null_z': f"{mnz:.3f}" if mnz is not None else 'NaN',
-            'member_mean_q':      f"{mq:.4f}"  if mq  is not None else 'NaN',
-            'in_reference':       str(cid in reference_ids) if reference_ids else 'NA',
-            'contributing_seeds': cuis_to_symbols(r.get('contributing_seeds', '')),
-            'seed_members':       cui_set_to_symbols(
-                                      membership_map.get(cid, frozenset()) & seed_set
-                                  ) if (membership_map is not None and seed_set) else '',
-            '_cal':               r['_cal'],
+            'rank':                    rank,
+            'pathway_name':            r.get('name', cid),
+            'pathway_id':              cid,
+            'source':                  r.get('sab', ''),
+            'n_members':               r.get('member_gene_count') or r.get('n_members') or r.get('degree') or '0',
+            'degree_norm':             f"{r['_dn']:.6e}",
+            'null_calibrated':         str(r['_cal']),
+            'null_z':                  f"{nz:.3f}"  if nz  is not None else 'NaN',
+            'empirical_q':             f"{eq:.4f}"  if eq  is not None else 'NaN',
+            'member_mean_null_z':      f"{mnz:.3f}" if mnz is not None else 'NaN',
+            'member_mean_q':           f"{mq:.4f}"  if mq  is not None else 'NaN',
+            'in_reference':            str(cid in reference_ids) if reference_ids else 'NA',
+            'contributing_seeds':      cuis_to_symbols(r.get('contributing_seeds', '')),
+            'seed_members':            seed_members_str,
+            'seed_member_scores':      seed_member_scores_str,
+            'influential_nodes_local': inf_local_str,
+            'influential_nodes_global': inf_global_str,
+            'neighbor_z_summary':      z_stats.get(cid, ''),
+            '_cal':                    r['_cal'],
         })
     return summary
 
@@ -219,7 +424,9 @@ TSV_COLS = [
     'rank', 'pathway_name', 'pathway_id', 'source', 'n_members',
     'degree_norm', 'null_calibrated', 'null_z', 'empirical_q',
     'member_mean_null_z', 'member_mean_q', 'in_reference',
-    'contributing_seeds', 'seed_members',
+    'contributing_seeds', 'seed_members', 'seed_member_scores',
+    'influential_nodes_local', 'influential_nodes_global',
+    'neighbor_z_summary',
 ]
 
 
@@ -235,7 +442,9 @@ def write_tsv(summary, outpath):
 LLM_COLS = [
     'rank', 'pathway_name', 'source', 'n_members',
     'degree_norm', 'null_z', 'empirical_q', 'in_reference',
-    'contributing_seeds', 'seed_members',
+    'contributing_seeds', 'seed_members', 'seed_member_scores',
+    'influential_nodes_local', 'influential_nodes_global',
+    'neighbor_z_summary',
 ]
 
 
@@ -359,7 +568,11 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         '| **empirical_q** | BH-corrected p-value. q < 0.05 = statistically significant. NaN = not tested. |\n'
         '| **in_reference** | TRUE if in a pre-specified biologically relevant reference set. |\n'
         '| **contributing_seeds** | Seed genes whose PPR signal flowed through the graph and contributed to this pathway\'s score. Includes genes connected through mechanistic edges, not just direct pathway members. |\n'
-        '| **seed_members** | Seed genes that are direct annotated members of this pathway in the source database. This is what Fisher enrichment uses. When contributing_seeds >> seed_members, the pathway was recovered through graph propagation rather than direct overlap. |\n\n'
+        '| **seed_members** | Seed genes that are direct annotated members of this pathway in the source database. Sorted by PPR score descending when scoring data is available. This is what Fisher enrichment uses. |\n'
+        '| **seed_member_scores** | PPR score (normalised 0-1 within pathway, 1.0 = top gene) for each gene in seed_members, in the same order. Empty if --member-scores not provided. |\n'
+        '| **influential_nodes_local** | Nodes in the conditioned graph connected to this pathway whose PPR score exceeds z > 1.96 within this pathway\'s neighbor distribution. Includes non-seed, non-member nodes that drove the pathway\'s score through graph propagation. |\n'
+        '| **influential_nodes_global** | Same nodes filtered by z > 1.96 vs all HGNC gene nodes in the full graph. A stricter threshold: these nodes are globally high-scoring, not just locally prominent for this pathway. |\n'
+        '| **neighbor_z_summary** | Quantile summary of z-score distributions across all neighbor nodes for this pathway, for both local (within-pathway) and global (all genes) z-scores. Format: local:n=N;max=X;p75=X;p50=X;p25=X | global:n=N;max=X;p75=X;p50=X;p25=X. Use this to interpret empty influential_nodes columns: if max z is below 1.96, the threshold was not met rather than the data being missing. |\n\n'
         '**rank and null_z are complementary, not interchangeable.** '
         'Rank reflects absolute propagated signal; null_z reflects whether signal is '
         'specifically attributable to this pathway\'s gene membership rather than generic '
@@ -446,20 +659,43 @@ def main():
     print(f"  {len(rows)} pathways, {len(seed_ids)} seeds, "
           f"{len(reference_ids)} reference pathways")
 
-    cui_to_symbol = build_cui_to_symbol(args.nodes)
+    cui_to_symbol, nodeid_to_cui = build_cui_to_symbol(args.nodes)
     if cui_to_symbol:
         print(f"  {len(cui_to_symbol):,} CUI->symbol mappings loaded")
+    if nodeid_to_cui:
+        print(f"  {len(nodeid_to_cui):,} node-id->CUI reverse mappings loaded")
 
     membership_map = None
     if args.edges_merged:
         print(f"Building membership map from: {args.edges_merged}")
-        membership_map = build_membership_map(args.edges_merged)
+        membership_map = build_membership_map(args.edges_merged,
+                                              nodeid_to_cui=nodeid_to_cui)
         print(f"  {len(membership_map):,} pathways in membership map")
+
+    member_scores_map = None
+    if args.member_scores:
+        print(f"Loading member scores from: {args.member_scores}")
+        member_scores_map = load_member_scores_file(args.member_scores)
+        print(f"  {len(member_scores_map):,} pathways with member score data")
+
+    influential_local_map  = None
+    influential_global_map = None
+    z_stats_map            = None
+    if args.influential_nodes:
+        print(f"Loading influential nodes from: {args.influential_nodes}")
+        influential_local_map, influential_global_map, z_stats_map = \
+            load_influential_nodes_file(args.influential_nodes)
+        print(f"  {len(influential_local_map):,} pathways with local z>1.96 nodes, "
+              f"{len(influential_global_map):,} with global z>1.96 nodes")
 
     summary = build_summary(rows, reference_ids,
                             seed_ids=seed_ids,
                             membership_map=membership_map,
-                            cui_to_symbol=cui_to_symbol)
+                            cui_to_symbol=cui_to_symbol,
+                            member_scores_map=member_scores_map,
+                            influential_local_map=influential_local_map,
+                            influential_global_map=influential_global_map,
+                            z_stats_map=z_stats_map)
 
     write_tsv(summary, os.path.join(args.outdir, 'pathway_results_summary.tsv'))
     write_llm(

@@ -172,6 +172,7 @@ def _score_chunk(chunk: list) -> list:
 def removesuffix(s, suffix):
     return s[:-len(suffix)] if suffix and s.endswith(suffix) else s
 
+import csv
 import json
 import logging
 import math
@@ -1809,6 +1810,203 @@ def build_node_sab_lookup(
 
 
 # ---------------------------------------------------------------------------
+# Accessory output writers
+# ---------------------------------------------------------------------------
+
+def _compute_global_gene_stats(
+    scores_cond: np.ndarray,
+    node_to_idx: Dict[str, int],
+    node_sab_lookup: Dict[str, str],
+) -> Tuple[float, float]:
+    """
+    Compute mean and SD of PPR scores across all HGNC gene nodes in the graph.
+    Used as the global reference distribution for z_global.
+    Returns (global_mean, global_sd). Falls back to all nodes if no HGNC found.
+    """
+    gene_scores = [
+        float(scores_cond[idx])
+        for nid, idx in node_to_idx.items()
+        if node_sab_lookup.get(nid, '') in GENE_SABS
+    ]
+    if not gene_scores:
+        log.warning("No HGNC gene nodes found for global z-score — using all nodes")
+        gene_scores = [float(scores_cond[idx]) for idx in node_to_idx.values()]
+    arr = np.array(gene_scores, dtype=float)
+    return float(arr.mean()), float(arr.std())
+
+
+def write_member_scores(
+    scored: List[PathwayScore],
+    membership_map: Dict[str, List[str]],
+    scores_cond: np.ndarray,
+    node_to_idx: Dict[str, int],
+    node_sab_lookup: Dict[str, str],
+    name_lookup: Dict[str, str],
+    out_path: str,
+) -> None:
+    """
+    Write pathway_member_scores.tsv — one row per (pathway, member_gene).
+
+    Columns
+    -------
+    pathway_id        : pathway concept CUI
+    pathway_name      : pathway display name
+    member_gene       : gene concept CUI
+    member_gene_name  : gene display name (symbol)
+    ppr_score         : raw PPR score from scores_cond
+    ppr_score_norm    : min-max normalised within this pathway's member set (1.0 = top)
+    z_within_pathway  : z-score of ppr_score within this pathway's member PPR distribution
+    z_global          : z-score of ppr_score vs all HGNC gene nodes in graph
+    """
+    global_mean, global_sd = _compute_global_gene_stats(
+        scores_cond, node_to_idx, node_sab_lookup)
+
+    rows = []
+    for p in scored:
+        members = membership_map.get(p.concept_id, [])
+        if not members:
+            continue
+
+        # Collect (gene_id, ppr_score) for members in index
+        gene_scores = [
+            (m, float(scores_cond[node_to_idx[m]]))
+            for m in members if m in node_to_idx
+        ]
+        if not gene_scores:
+            continue
+
+        vals = np.array([s for _, s in gene_scores], dtype=float)
+        local_mean = float(vals.mean())
+        local_sd   = float(vals.std())
+        val_min    = float(vals.min())
+        val_max    = float(vals.max())
+        val_range  = val_max - val_min
+
+        for gene_id, ppr in sorted(gene_scores, key=lambda x: -x[1]):
+            norm  = (ppr - val_min) / val_range if val_range > 0 else 1.0
+            z_loc = (ppr - local_mean) / local_sd if local_sd > 0 else 0.0
+            z_glb = (ppr - global_mean) / global_sd if global_sd > 0 else 0.0
+            raw_name = name_lookup.get(gene_id, gene_id)
+            clean_name = raw_name[:-5].strip() if raw_name.endswith(' gene') else raw_name
+            rows.append({
+                'pathway_id':       p.concept_id,
+                'pathway_name':     p.name,
+                'member_gene':      gene_id,
+                'member_gene_name': clean_name,
+                'ppr_score':        f"{ppr:.8e}",
+                'ppr_score_norm':   f"{norm:.6f}",
+                'z_within_pathway': f"{z_loc:.4f}",
+                'z_global':         f"{z_glb:.4f}",
+            })
+
+    if not rows:
+        log.warning("write_member_scores: no rows generated — check membership_map")
+        return
+
+    cols = ['pathway_id', 'pathway_name', 'member_gene', 'member_gene_name',
+            'ppr_score', 'ppr_score_norm', 'z_within_pathway', 'z_global']
+    with open(out_path, 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=cols, delimiter='\t')
+        w.writeheader()
+        w.writerows(rows)
+    log.info("Wrote %d member-score rows (%d pathways) to %s",
+             len(rows), len({r['pathway_id'] for r in rows}), out_path)
+
+
+def write_influential_nodes(
+    scored: List[PathwayScore],
+    membership_map: Dict[str, List[str]],
+    neighbor_map: Dict[str, List[str]],
+    scores_cond: np.ndarray,
+    node_to_idx: Dict[str, int],
+    node_sab_lookup: Dict[str, str],
+    name_lookup: Dict[str, str],
+    seed_set: Set[str],
+    out_path: str,
+    max_neighbors: int = 200,
+) -> None:
+    """
+    Write pathway_influential_nodes.tsv — one row per (pathway, neighbor_node).
+    Neighbors are deduplicated, scored, sorted by z_within_pathway descending,
+    then capped at max_neighbors per pathway (0 = no cap).
+    """
+    global_mean, global_sd = _compute_global_gene_stats(
+        scores_cond, node_to_idx, node_sab_lookup)
+
+    member_sets: Dict[str, Set[str]] = {
+        pid: set(members) for pid, members in membership_map.items()
+    }
+
+    rows = []
+    for p in scored:
+        neighbors = neighbor_map.get(p.concept_id, [])
+        if not neighbors:
+            continue
+
+        # Deduplicate — neighbor_map may contain repeated entries from
+        # bidirectional edge traversal
+        neighbors = list(dict.fromkeys(neighbors))
+
+        node_scores = [
+            (n, float(scores_cond[node_to_idx[n]]))
+            for n in neighbors if n in node_to_idx
+        ]
+        if not node_scores:
+            continue
+
+        vals     = np.array([s for _, s in node_scores], dtype=float)
+        loc_mean = float(vals.mean())
+        loc_sd   = float(vals.std())
+        val_min  = float(vals.min())
+        val_max  = float(vals.max())
+        val_range = val_max - val_min
+
+        pw_members = member_sets.get(p.concept_id, set())
+
+        # Sort by z_within descending so cap (if ever applied) keeps best nodes
+        scored_nodes = []
+        for node_id, ppr in node_scores:
+            norm  = (ppr - val_min) / val_range if val_range > 0 else 1.0
+            z_loc = (ppr - loc_mean) / loc_sd if loc_sd > 0 else 0.0
+            z_glb = (ppr - global_mean) / global_sd if global_sd > 0 else 0.0
+            scored_nodes.append((node_id, ppr, norm, z_loc, z_glb))
+        scored_nodes.sort(key=lambda x: -x[3])  # sort by z_within descending
+        if max_neighbors > 0:
+            scored_nodes = scored_nodes[:max_neighbors]
+
+        for node_id, ppr, norm, z_loc, z_glb in scored_nodes:
+            raw_name   = name_lookup.get(node_id, node_id)
+            clean_name = raw_name[:-5].strip() if raw_name.endswith(' gene') else raw_name
+            rows.append({
+                'pathway_id':       p.concept_id,
+                'pathway_name':     p.name,
+                'node_id':          node_id,
+                'node_name':        clean_name,
+                'node_sab':         node_sab_lookup.get(node_id, ''),
+                'is_member':        str(node_id in pw_members),
+                'is_seed':          str(node_id in seed_set),
+                'ppr_score':        f"{ppr:.8e}",
+                'ppr_score_norm':   f"{norm:.6f}",
+                'z_within_pathway': f"{z_loc:.4f}",
+                'z_global':         f"{z_glb:.4f}",
+            })
+
+    if not rows:
+        log.warning("write_influential_nodes: no rows generated — check neighbor_map")
+        return
+
+    cols = ['pathway_id', 'pathway_name', 'node_id', 'node_name', 'node_sab',
+            'is_member', 'is_seed', 'ppr_score', 'ppr_score_norm',
+            'z_within_pathway', 'z_global']
+    with open(out_path, 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=cols, delimiter='\t')
+        w.writeheader()
+        w.writerows(rows)
+    log.info("Wrote %d influential-node rows (%d pathways) to %s",
+             len(rows), len({r['pathway_id'] for r in rows}), out_path)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -1881,6 +2079,19 @@ Examples:
                              "Should match the alpha used in bifo_conditioning.py.")
     parser.add_argument("--perm-random-seed",  type=int, default=42,
                         help="Base random seed for null permutations (default: 42).")
+    parser.add_argument("--out-member-scores", default=None,
+                        help="Optional: path for pathway_member_scores.tsv. "
+                             "One row per (pathway, member_gene) with PPR scores, "
+                             "within-pathway z-score, and global z-score.")
+    parser.add_argument("--out-influential-nodes", default=None,
+                        help="Optional: path for pathway_influential_nodes.tsv. "
+                             "One row per (pathway, conditioned-graph neighbor) with "
+                             "PPR scores, is_member, is_seed, z_within_pathway, z_global. "
+                             "Rows sorted by z_within_pathway descending (unthresholded).")
+    parser.add_argument("--max-influential-neighbors", type=int, default=200,
+                        help="Max neighbors per pathway in pathway_influential_nodes.tsv, "
+                             "sorted by z_within_pathway descending (default: 200). "
+                             "Set to 0 for no cap (full output).")
 
     args = parser.parse_args()
     nodes = load_table(args.nodes)
@@ -1964,6 +2175,54 @@ Examples:
     }
     Path(args.out_json).write_text(json.dumps(output, indent=2))
     log.info("Wrote metrics to %s", args.out_json)
+
+    # --- Accessory output files (optional) ---
+    if args.out_member_scores or args.out_influential_nodes:
+        log.info("Building accessory output data structures...")
+        node_sab_lookup_main = build_node_sab_lookup(nodes)
+        membership_map_main  = build_membership_map(
+            edges_raw, node_sab_lookup_main, DEFAULT_MEMBERSHIP_SOURCES)
+        neighbor_map_main    = build_neighbor_map(conditioned_edges, node_to_idx)
+
+        # name_lookup: CUI -> display name
+        name_col_main = next(
+            (c for c in ['name', 'pref_term', 'label', 'preferred_name']
+             if c in nodes.columns), None)
+        id_col_main = next(
+            (c for c in ['node_id', 'id', 'CUI'] if c in nodes.columns), None)
+        name_lookup_main: Dict[str, str] = {}
+        if name_col_main and id_col_main:
+            name_lookup_main = dict(zip(
+                nodes[id_col_main].astype(str).map(clean_node_id),
+                nodes[name_col_main].astype(str)
+            ))
+
+        seed_set_main: Set[str] = set(seed_ids)
+
+        if args.out_member_scores:
+            write_member_scores(
+                scored=ranked,
+                membership_map=membership_map_main,
+                scores_cond=scores_cond,
+                node_to_idx=node_to_idx,
+                node_sab_lookup=node_sab_lookup_main,
+                name_lookup=name_lookup_main,
+                out_path=args.out_member_scores,
+            )
+
+        if args.out_influential_nodes:
+            write_influential_nodes(
+                scored=ranked,
+                membership_map=membership_map_main,
+                neighbor_map=neighbor_map_main,
+                scores_cond=scores_cond,
+                node_to_idx=node_to_idx,
+                node_sab_lookup=node_sab_lookup_main,
+                name_lookup=name_lookup_main,
+                seed_set=seed_set_main,
+                out_path=args.out_influential_nodes,
+                max_neighbors=args.max_influential_neighbors,
+            )
 
     print(f"\n=== Pathway Scoring Summary (score_variant={args.score_variant}) ===")
     print(f"  Pathways scored:          {len(ranked)}")

@@ -45,6 +45,10 @@ def parse_args():
                    help='pathway_scores_standard.csv from score_pathways.py')
     p.add_argument('--seeds',        default=None,
                    help='Text file of seed gene CUIs (one per line)')
+    p.add_argument('--edges-merged', default=None,
+                   help='edges_merged.csv or edges_all_noncc.csv — used to compute '
+                        'direct seed-pathway membership overlap (seed_members column). '
+                        'Optional; if omitted, seed_members column is omitted.')
     p.add_argument('--reference',    default=None,
                    help='Text file of reference pathway CUIs (one per line)')
     p.add_argument('--cohort-name',  default='BIFO run',
@@ -92,7 +96,45 @@ def safe_bool(val):
     return bool(val)
 
 
-def build_summary(rows, reference_ids):
+MEMBERSHIP_PREDS_FWD = {
+    'pathway_associated_with_gene',
+    'has_signature_gene',
+    'process_involves_gene',
+}
+MEMBERSHIP_PREDS_REV = {
+    'inverse_pathway_associated_with_gene',
+    'inverse_has_signature_gene',
+    'gene_plays_role_in_process',
+}
+
+
+def build_membership_map(edges_csv, min_members=8, max_members=300):
+    """
+    Build {pathway_id: frozenset(gene_ids)} from edges_merged.csv.
+    Only processes membership predicates; applies size filter.
+    """
+    import csv as _csv
+    pw_to_genes = {}
+    try:
+        with open(edges_csv, encoding='utf-8-sig') as f:
+            for row in _csv.DictReader(f):
+                pred = row.get('predicate', '').strip()
+                src  = row.get('source', row.get('subject', '')).strip()
+                tgt  = row.get('target', row.get('object', '')).strip()
+                if pred in MEMBERSHIP_PREDS_FWD:
+                    pw_to_genes.setdefault(src, set()).add(tgt)
+                elif pred in MEMBERSHIP_PREDS_REV:
+                    pw_to_genes.setdefault(tgt, set()).add(src)
+    except FileNotFoundError:
+        print(f"WARNING: edges file not found: {edges_csv}", file=__import__('sys').stderr)
+        return {}
+    return {pw: frozenset(genes)
+            for pw, genes in pw_to_genes.items()
+            if min_members <= len(genes) <= max_members}
+
+
+def build_summary(rows, reference_ids, seed_ids=None, membership_map=None):
+    seed_set = frozenset(seed_ids) if seed_ids else frozenset()
     for r in rows:
         r['_dn']  = safe_float(r.get('degree_norm', 0)) or 0.0
         r['_cal'] = safe_bool(r.get('null_calibrated', True))
@@ -119,6 +161,10 @@ def build_summary(rows, reference_ids):
             'member_mean_null_z': f"{mnz:.3f}" if mnz is not None else 'NaN',
             'member_mean_q':      f"{mq:.4f}"  if mq  is not None else 'NaN',
             'in_reference':       str(cid in reference_ids) if reference_ids else 'NA',
+            'contributing_seeds': r.get('contributing_seeds', ''),
+            'seed_members':       ';'.join(sorted(
+                                      membership_map.get(cid, frozenset()) & seed_set
+                                  )) if (membership_map is not None and seed_set) else '',
             '_cal':               r['_cal'],
         })
     return summary
@@ -128,6 +174,7 @@ TSV_COLS = [
     'rank', 'pathway_name', 'pathway_id', 'source', 'n_members',
     'degree_norm', 'null_calibrated', 'null_z', 'empirical_q',
     'member_mean_null_z', 'member_mean_q', 'in_reference',
+    'contributing_seeds', 'seed_members',
 ]
 
 
@@ -351,7 +398,15 @@ def main():
     print(f"  {len(rows)} pathways, {len(seed_ids)} seeds, "
           f"{len(reference_ids)} reference pathways")
 
-    summary = build_summary(rows, reference_ids)
+    membership_map = None
+    if args.edges_merged:
+        print(f"Building membership map from: {args.edges_merged}")
+        membership_map = build_membership_map(args.edges_merged)
+        print(f"  {len(membership_map):,} pathways in membership map")
+
+    summary = build_summary(rows, reference_ids,
+                            seed_ids=seed_ids,
+                            membership_map=membership_map)
 
     write_tsv(summary, os.path.join(args.outdir, 'pathway_results_summary.tsv'))
     write_llm(

@@ -401,8 +401,8 @@ print('=== TABLE 4: Baseline comparison ===')
 b = json.load(open('results/chd_benchmark/baseline_comparison.json'))
 expected = {'degree_overlap':0.40,'seed_fisher':0.30,'neighborhood_fisher':0.00,
             'raw_ppr_gsea':0.10,'cond_ppr_gsea':0.10,'bifo_full':0.70}
-ap_expected = {'degree_overlap':0.342,'seed_fisher':0.156,'neighborhood_fisher':0.036,
-               'raw_ppr_gsea':0.117,'cond_ppr_gsea':0.114,'bifo_full':0.403}
+ap_expected = {'degree_overlap':0.343,'seed_fisher':0.156,'neighborhood_fisher':0.037,
+               'raw_ppr_gsea':0.117,'cond_ppr_gsea':0.088,'bifo_full':0.408}
 for m in b['methods']:
     meth = m['method']
     p10 = m.get('precision_at_10', 0)

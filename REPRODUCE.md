@@ -216,7 +216,7 @@ python3 pipeline/chd_resampling_exhaustive.py \
 
 ---
 
-## Analysis 2 — KF-CHD Cohort (Results §8, Methods §10–15)
+## Analysis 2 — KF-CHD Cohort (Results §7, Methods §10–15)
 
 ### Data requirements
 
@@ -296,7 +296,7 @@ python3 pipeline/baseline_enrichment.py \
 
 ---
 
-## Analysis 3 — KF-NBL Cohort (Results §8, Methods §10–15)
+## Analysis 3 — KF-NBL Cohort (Results §7, Methods §10–15)
 
 Independent neuroblastoma cohort (554 probands, dbGaP phs001436). Same pipeline as KF-CHD. Seed CUIs: `data/cohorts/nbl/kf_nbl_seed_cuis.txt` (1,395 CUIs; 1,395/1,406 resolved). Frozen outputs in `results/kf_nbl/`.
 
@@ -511,8 +511,8 @@ print('=== KF-NBL RESULTS ===')
 print(f'  WP_CILIOPATHIES rank: {cilia_rank} (expected 3)')
 cilia = df[df.name == 'WP_CILIOPATHIES'].iloc[0]
 print(f'  WP_CILIOPATHIES degree_norm: {cilia.degree_norm:.3e} (expected 4.241e-06)')
-print(f'  WP_CILIOPATHIES null_z: {cilia.null_z:.2f} (expected 18.95)')
-print(f'  WP_CILIOPATHIES empirical_q: {cilia.empirical_q:.4f} (expected 0.0116)')
+print(f'  WP_CILIOPATHIES null_z: {cilia.null_z:.2f} (expected 18.37)')
+print(f'  WP_CILIOPATHIES empirical_q: {cilia.empirical_q:.4f} (expected 0.014)')
 print(f'  WP_CILIOPATHIES member_mean_null_z: {cilia.member_mean_null_z:.3f} (expected 2.433)')
 print(f'  WP_CILIOPATHIES member_mean_p: {cilia.member_mean_p:.4f} (expected 0.0030)')
 

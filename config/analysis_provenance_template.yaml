@@ -1,0 +1,55 @@
+# BIFO-PPR Analysis Provenance Template
+# ============================================================
+# Fill out all REQUIRED fields before running summarize_results.py.
+# OPTIONAL fields may be left as null.
+#
+# Usage:
+#   cp config/analysis_provenance_template.yaml results/<cohort>/provenance.yaml
+#   # edit results/<cohort>/provenance.yaml
+#   # then run:
+#   python3 pipeline/summarize_results.py --provenance results/<cohort>/provenance.yaml ...
+#
+# Fields marked REQUIRED must not be null for FAIR compliance.
+# Fields marked OPTIONAL may remain null without affecting FAIR rating.
+# Fields marked AUTO-FILLED are populated by the pipeline at runtime.
+# ============================================================
+
+analysis:
+  type: null                    # REQUIRED: rare-variant-cohort | drug-target | phenotype-gene | custom
+  description: null             # REQUIRED: one sentence describing this analysis and why it was run
+
+cohort:
+  name: null                    # REQUIRED: short label e.g. KF-CHD
+  disease: null                 # REQUIRED: e.g. congenital heart disease
+  n_probands: null              # REQUIRED: integer e.g. 697
+  source: null                  # REQUIRED: e.g. Kids First Pediatric Research Program
+  repository: null              # REQUIRED: e.g. dbGaP
+  accession: null               # REQUIRED: e.g. phs001138.v3.p2
+  data_access_url: null         # REQUIRED: e.g. https://kidsfirstdrc.org
+  demographics: null            # OPTIONAL: e.g. 697 pediatric probands, age 0-18, ancestry admixed
+  irb_protocol: null            # OPTIONAL: e.g. IRB protocol XXXX, consent type Y
+
+knowledge_graph:
+  name: null                    # REQUIRED: e.g. Data Distillery Knowledge Graph
+  version: null                 # REQUIRED: e.g. August 2025 release
+  doi_or_url: null              # REQUIRED: e.g. https://doi.org/10.1101/2025.08.11.666099
+  export_query_file: null       # REQUIRED: path to Cypher/SPARQL/SQL query used to export edges and nodes
+  export_query_text: null       # OPTIONAL: paste query here if short; otherwise reference export_query_file
+
+pipeline:
+  bifo_git_commit: null         # REQUIRED: run: git -C /path/to/bifo-graph log -1 --oneline
+  bifo_ontology_version: null   # REQUIRED: e.g. bifo_mapping.yaml v0.7.1
+  bifo_ontology_file: null      # REQUIRED: absolute path to bifo_mapping.yaml used
+  pipeline_log_file: null       # REQUIRED: absolute path to score_pathways.py nohup log
+  score_pathways_command: null  # AUTO-FILLED: written to results/<cohort>/last_command.txt by score_pathways.py
+  python_version: null          # AUTO-FILLED: captured by summarize_results.py at runtime
+
+attribution:
+  analyst_name: null            # REQUIRED: name of person who ran the analysis
+  institution: null             # REQUIRED: e.g. Children's Hospital of Philadelphia
+  contact_email: null           # REQUIRED: e.g. analyst@institution.edu
+  publication_doi: null         # OPTIONAL: DOI or URL if published or preprinted
+
+notes: |
+  # Free text. Add any additional context, caveats, or notes about this
+  # specific analysis run here. Replace this comment with your notes.

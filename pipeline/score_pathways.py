@@ -2176,6 +2176,13 @@ Examples:
     Path(args.out_json).write_text(json.dumps(output, indent=2))
     log.info("Wrote metrics to %s", args.out_json)
 
+    # Write last_command.txt so summarize_results.py can record the exact
+    # score_pathways command used for this run (FAIR provenance)
+    import sys as _sys
+    last_cmd_path = Path(args.out_csv).parent / "last_command.txt"
+    last_cmd_path.write_text(" ".join(_sys.argv))
+    log.info("Wrote pipeline command to %s", last_cmd_path)
+
     # --- Accessory output files (optional) ---
     if args.out_member_scores or args.out_influential_nodes:
         log.info("Building accessory output data structures...")

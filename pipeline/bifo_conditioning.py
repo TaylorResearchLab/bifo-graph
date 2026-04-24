@@ -1077,8 +1077,9 @@ def main() -> None:
     parser.add_argument("--mechanistic-only", action="store_true", default=False,
                         help="Build PPR operator from mechanistic edges only "
                              "(classification == 'mechanistic'). Observational, "
-                             "perturbational, pathway-contribution, and contextual "
-                             "edges are excluded from propagation. Use to isolate "
+                             "weak-mechanistic perturbational/correlation, pathway-contribution, "
+                             "and contextual edges are excluded from propagation. "
+                             "Mechanistic Perturbational Effect predicates are retained. Use to isolate "
                              "strictly mechanistic biological flow signal.")
     args = parser.parse_args()
 

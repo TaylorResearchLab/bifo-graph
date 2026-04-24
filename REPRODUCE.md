@@ -94,7 +94,7 @@ python3 pipeline/score_pathways.py \
 
 **Expected:** 550 pathways, P@10=0.70, enrichment=21.4×, mean rank=86.6, rank improvement=+125.4
 
-### Step 1.5 — Pathway Scoring with Empirical Null (Methods §8.4)
+### Step 1.5 — Pathway Scoring with Empirical Null (Methods §5)
 
 The null model is run as part of Step 1.4 by adding `--n-permutations 1000 --null-type membership-rewiring`. The null results are written to `pathway_scores_full.csv` alongside the scoring results. To reproduce the null results in isolation:
 
@@ -216,7 +216,7 @@ python3 pipeline/chd_resampling_exhaustive.py \
 
 ---
 
-## Analysis 2 — KF-CHD Cohort (Figures 3–4, Sections 8.1–8.4)
+## Analysis 2 — KF-CHD Cohort (Results §8, Methods §10–15)
 
 ### Data requirements
 
@@ -270,7 +270,7 @@ python3 pipeline/score_pathways.py \
 
 **Expected (scoring):** WP_CILIOPATHIES rank 43/2,130 (top 2%), degree_norm=8.509e-06; WP_JOUBERT_SYNDROME rank 34 (null degenerate in CHD). Pathway universe: 2,130 (CGP sets excluded via --allowed-name-prefixes).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=41.19, empirical q=0.0081 (valid — bridge edges 41.4% of propagating graph; see Methods §8.4)
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=41.19, empirical q=0.0081 (valid — bridge edges 41.4% of propagating graph; see Methods §5)
 
 **Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=1.39, empirical p=0.057 (not significant at member level; signal concentrated at pathway node)
 
@@ -296,7 +296,7 @@ python3 pipeline/baseline_enrichment.py \
 
 ---
 
-## Analysis 3 — KF-NBL Cohort (Figure 4, Section 8.3)
+## Analysis 3 — KF-NBL Cohort (Results §8, Methods §10–15)
 
 Independent neuroblastoma cohort (554 probands, dbGaP phs001436). Same pipeline as KF-CHD. Seed CUIs: `data/cohorts/nbl/kf_nbl_seed_cuis.txt` (1,395 CUIs; 1,395/1,406 resolved). Frozen outputs in `results/kf_nbl/`.
 

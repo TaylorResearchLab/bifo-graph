@@ -288,12 +288,12 @@ bash run_test.sh
 | §2 Knowledge graph source | `cypher/` export queries, `pipeline/clean_cypher_output.py` |
 | §3 Personalized PageRank | `pipeline/bifo_conditioning.py` (PPR loop) |
 | §4 Pathway scoring | `pipeline/score_pathways.py` |
-| §5 Benchmark design | `data/benchmark/`, `BENCHMARK_MANIFEST.md` |
-| §6 Baseline enrichment | `pipeline/baseline_enrichment.py` |
+| §5 Empirical significance (rewiring null) | `pipeline/score_pathways.py` (`--n-permutations`, `--null-type`) |
+| §6 Benchmark design | `data/benchmark/`, `BENCHMARK_MANIFEST.md` |
+| §7 Baseline enrichment | `pipeline/baseline_enrichment.py` |
+| §8 Evaluation metrics | `pipeline/score_pathways.py`, `pipeline/baseline_enrichment.py` |
 | §9 Exhaustive resampling | `pipeline/chd_resampling_exhaustive.py` |
-| §10 KF cohort analysis | `scripts/run_full_pipeline.sh`, `pipeline/kf_resampling.py` |
-| §11 Output files | `pipeline/summarize_results.py` |
-| §8.4 Empirical null models | `pipeline/score_pathways.py` (`--n-permutations`, `--null-type`) |
+| §10–15 KF cohort analysis | `scripts/run_full_pipeline.sh`, `pipeline/kf_resampling.py` |
 
 ---
 

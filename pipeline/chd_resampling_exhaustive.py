@@ -235,6 +235,9 @@ def build_membership(edges_merged_path: str, min_members: int, max_members: int,
     for pw, genes in raw_membership.items():
         if not (min_members <= len(genes) <= max_members):
             continue
+        name = pathway_names.get(pw, pw) if 'pathway_names' in dir() else pw
+        if any(pat in pw for pat in excluded):
+            continue
         membership[pw] = frozenset(genes)
 
     return membership, gene_universe
@@ -514,8 +517,10 @@ def run(args):
 
     # ── Pathway data ─────────────────────────────────────────────────────────
     print("[3/5] Building pathway membership map...")
+    _excluded_patterns = ['_Q2', '_Q3', '_Q4', '_Q5', '_Q6', 'MIR']
     membership, gene_universe = build_membership(
-        args.edges_merged, args.min_members, args.max_members)
+        args.edges_merged, args.min_members, args.max_members,
+        excluded_patterns=_excluded_patterns)
     if args.bifo_scores and Path(args.bifo_scores).exists():
         membership = filter_to_bifo_universe(args.bifo_scores, membership)
     print(f"      {len(membership):,} pathways (frozen BIFO universe)")

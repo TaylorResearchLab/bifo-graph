@@ -462,7 +462,7 @@ def md_table(rows, cols):
 
 def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
               n_probands, scores_path, top_n, include_degenerate, outpath,
-              n_resolved_seeds=None):
+              n_resolved_seeds=None, cui_to_symbol=None):
 
     n_seeds      = len(seed_ids)
     n_display    = n_resolved_seeds if n_resolved_seeds is not None else n_seeds
@@ -489,14 +489,18 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
                 if safe_float(r['empirical_q']) is not None
                 and safe_float(r['empirical_q']) < 0.05]
 
-    seed_list = sorted(seed_ids)
-    if len(seed_list) > 200:
-        seed_display = ', '.join(seed_list[:200]) + \
-                       f'\n... and {len(seed_list)-200} more (see --seeds file).'
+    sym = cui_to_symbol or {}
+    # Map seed CUIs to gene symbols for display; fall back to CUI if unknown
+    seed_symbols = sorted(sym.get(s, s) for s in seed_ids)
+    if len(seed_symbols) > 200:
+        seed_display = ', '.join(seed_symbols[:200]) + \
+                       f'\n... and {len(seed_symbols)-200} more (see --seeds file).'
     else:
-        seed_display = ', '.join(seed_list) if seed_list else 'Not provided.'
+        seed_display = ', '.join(seed_symbols) if seed_symbols else 'Not provided.'
 
-    ref_display = (', '.join(sorted(reference_ids))
+    # Map reference pathway IDs to names using summary; fall back to ID
+    id_to_name = {r['pathway_id']: r['pathway_name'] for r in summary}
+    ref_display = (', '.join(sorted(id_to_name.get(r, r) for r in reference_ids))
                    if reference_ids else 'No reference set provided.')
 
     L = []
@@ -850,6 +854,7 @@ def main():
         top_n              = args.top_n_llm,
         include_degenerate = args.include_degenerate,
         n_resolved_seeds   = args.n_resolved_seeds,
+        cui_to_symbol      = cui_to_symbol,
         outpath            = os.path.join(args.outdir, 'pathway_results_llm.md'),
     )
     print("Done.")

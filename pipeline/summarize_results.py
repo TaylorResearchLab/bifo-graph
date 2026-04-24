@@ -397,25 +397,25 @@ def build_summary(rows, reference_ids, seed_ids=None, membership_map=None,
         )
 
         summary.append({
-            'rank':                    rank,
-            'pathway_name':            r.get('name', cid),
-            'pathway_id':              cid,
-            'source':                  r.get('sab', ''),
-            'n_members':               r.get('member_gene_count') or r.get('n_members') or r.get('degree') or '0',
-            'degree_norm':             f"{r['_dn']:.6e}",
-            'null_calibrated':         str(r['_cal']),
-            'null_z':                  f"{nz:.3f}"  if nz  is not None else 'NaN',
-            'empirical_q':             f"{eq:.4f}"  if eq  is not None else 'NaN',
-            'member_mean_null_z':      f"{mnz:.3f}" if mnz is not None else 'NaN',
-            'member_mean_q':           f"{mq:.4f}"  if mq  is not None else 'NaN',
-            'in_reference':            str(cid in reference_ids) if reference_ids else 'NA',
-            'contributing_seeds':      cuis_to_symbols(r.get('contributing_seeds', '')),
-            'seed_members':            seed_members_str,
-            'seed_member_scores':      seed_member_scores_str,
-            'influential_nodes_local': inf_local_str,
-            'influential_nodes_global': inf_global_str,
-            'neighbor_z_summary':      z_stats.get(cid, ''),
-            '_cal':                    r['_cal'],
+            'rank':                      rank,
+            'pathway_name':              r.get('name', cid),
+            'pathway_id':                cid,
+            'source':                    r.get('sab', ''),
+            'n_members':                 r.get('member_gene_count') or r.get('n_members') or r.get('degree') or '0',
+            'degree_norm':               f"{r['_dn']:.6e}",
+            'null_calibrated':           str(r['_cal']),
+            'null_z':                    f"{nz:.3f}"  if nz  is not None else 'NaN',
+            'empirical_q':               f"{eq:.4f}"  if eq  is not None else 'NaN',
+            'member_mean_null_z':        f"{mnz:.3f}" if mnz is not None else 'NaN',
+            'member_mean_q':             f"{mq:.4f}"  if mq  is not None else 'NaN',
+            'in_reference':              str(cid in reference_ids) if reference_ids else 'NA',
+            'seed_members':              seed_members_str,
+            'seed_member_scores':        seed_member_scores_str,
+            'influential_nodes_local':   inf_local_str,
+            'influential_nodes_global':  inf_global_str,
+            'neighbor_z_local':          z_stats.get(cid, '').split(' | ')[0] if z_stats.get(cid) else '',
+            'neighbor_z_global':         z_stats.get(cid, '').split(' | ')[1] if z_stats.get(cid) and ' | ' in z_stats.get(cid, '') else '',
+            '_cal':                      r['_cal'],
         })
     return summary
 
@@ -424,9 +424,9 @@ TSV_COLS = [
     'rank', 'pathway_name', 'pathway_id', 'source', 'n_members',
     'degree_norm', 'null_calibrated', 'null_z', 'empirical_q',
     'member_mean_null_z', 'member_mean_q', 'in_reference',
-    'contributing_seeds', 'seed_members', 'seed_member_scores',
+    'seed_members', 'seed_member_scores',
     'influential_nodes_local', 'influential_nodes_global',
-    'neighbor_z_summary',
+    'neighbor_z_local', 'neighbor_z_global',
 ]
 
 
@@ -442,9 +442,9 @@ def write_tsv(summary, outpath):
 LLM_COLS = [
     'rank', 'pathway_name', 'source', 'n_members',
     'degree_norm', 'null_z', 'empirical_q', 'in_reference',
-    'contributing_seeds', 'seed_members', 'seed_member_scores',
+    'seed_members', 'seed_member_scores',
     'influential_nodes_local', 'influential_nodes_global',
-    'neighbor_z_summary',
+    'neighbor_z_local', 'neighbor_z_global',
 ]
 
 
@@ -460,9 +460,22 @@ def md_table(rows, cols):
     return '\n'.join([hdr, sep] + [row_str(r) for r in rows])
 
 
+def _get_global_seeds(raw_rows, sym):
+    """Extract contributing_seeds from raw scores rows, resolve CUIs to symbols."""
+    for r in raw_rows:
+        raw = r.get('contributing_seeds', '')
+        if raw:
+            # Pipe-separated CUIs — resolve to symbols
+            return ';'.join(
+                sym.get(c.strip(), c.strip())
+                for c in raw.split('|') if c.strip()
+            )
+    return 'Not available'
+
+
 def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
               n_probands, scores_path, top_n, include_degenerate, outpath,
-              n_resolved_seeds=None, cui_to_symbol=None):
+              n_resolved_seeds=None, cui_to_symbol=None, raw_rows=None):
 
     n_seeds      = len(seed_ids)
     n_display    = n_resolved_seeds if n_resolved_seeds is not None else n_seeds
@@ -539,7 +552,12 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
              f'- **Pathways scored:** {n_total} total; {n_cal} with valid null distribution\n'
              f'- **Significant pathways (q < 0.05):** {n_sig}\n'
              f'- **Analysis date:** {today}\n'
-             f'- **Source file:** {os.path.basename(scores_path)}\n')
+             f'- **Source file:** {os.path.basename(scores_path)}\n'
+             f'- **Top globally influential seed genes (by PPR score across full graph):** '
+             f'{_get_global_seeds(raw_rows or [], sym)}\n'
+             f'  *(These genes dominated the overall PPR propagation for this run. '
+             f'This is a run-level summary, not per-pathway — see seed_members column '
+             f'for per-pathway seed gene overlap.)*\n')
     L.append('---\n')
 
     L.append(
@@ -639,15 +657,6 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         'reference set was provided. | Use to flag pathways that were hypothesized '
         'in advance to be relevant. A high-ranking pathway that is also in_reference '
         '= TRUE is a positive control hit and supports the validity of the analysis. |\n'
-        '| **contributing_seeds** | The top input (seed) genes by global PPR score '
-        'in this run — i.e., the genes that received the most propagated signal '
-        'across the entire graph. NOTE: this is a GLOBAL field and is identical for '
-        'all pathways in the table. It does not represent per-pathway contributors. '
-        'It identifies which input genes were most influential in the overall '
-        'propagation, which may explain why certain pathway clusters score highly. | '
-        'Use this to understand which input genes dominated the PPR signal globally. '
-        'If the same few genes appear here and in seed_members for top pathways, '
-        'those genes are likely driving the results. |\n'
         '| **seed_members** | The subset of input (seed) genes that are direct '
         'annotated members of this pathway in the source database, sorted by their '
         'PPR score descending (highest-scoring seed member first). These are the '
@@ -677,7 +686,7 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         'including genes that are NOT formal pathway members and NOT in the input seed '
         'set. Semicolon-separated, sorted by local z-score descending. Empty either '
         'because no node passed the threshold OR because the --influential-nodes file '
-        'was not provided — check neighbor_z_summary to distinguish these cases. | '
+        'was not provided — check neighbor_z_local to distinguish these cases. | '
         'Use to identify non-obvious drivers of the pathway score. A gene appearing '
         'here but not in seed_members was not a direct input gene, but its graph '
         'neighborhood strongly connected to this pathway. These are candidate '
@@ -693,19 +702,27 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         'in both influential_nodes_local and influential_nodes_global are the strongest '
         'candidates — they score high both within this pathway\'s context and across '
         'the full graph. |\n'
-        '| **neighbor_z_summary** | A compact statistical summary of the PPR z-score '
-        'distributions across ALL neighbor nodes of this pathway (not just those passing '
-        'the 1.96 threshold). Reported for both local and global z-scores. Format: '
-        'local:n=N;max=X;p75=X;p50=X;p25=X | global:n=N;max=X;p75=X;p50=X;p25=X, '
-        'where n = number of neighbors, max = highest z-score observed, p75/p50/p25 = '
-        '75th/50th/25th percentiles of the z-score distribution. | CRITICAL for '
-        'interpreting empty influential_nodes columns. If influential_nodes_local is '
-        'empty and neighbor_z_summary shows local:max < 1.96, the threshold was simply '
-        'not met — the signal is present but distributed across many genes rather than '
-        'concentrated in a few. This is biologically meaningful (distributed signal). '
-        'If max >> 1.96 but the column is still empty, investigate a potential data '
-        'issue. A flat distribution (p75 ≈ p50 ≈ p25) means signal is spread evenly; '
-        'a skewed distribution (max >> p75) means one or a few nodes dominate. |\n\n'
+        '| **neighbor_z_local** | Statistical summary of the within-pathway z-score '
+        'distribution across ALL neighbor nodes of this pathway (not just those passing '
+        'the 1.96 threshold). Format: local:n=N;max=X;p75=X;p50=X;p25=X, where '
+        'n = number of neighbors scored, max = highest local z-score observed, '
+        'p75/p50/p25 = 75th/50th/25th percentiles. | CRITICAL for interpreting empty '
+        'influential_nodes_local. If that column is empty and neighbor_z_local shows '
+        'max < 1.96, the threshold was simply not met — the local signal is present '
+        'but distributed across many genes rather than concentrated in a few. This is '
+        'biologically meaningful (distributed signal), not a data error. A flat '
+        'distribution (p75 ≈ p50 ≈ p25) means signal is spread evenly; a skewed '
+        'distribution (max >> p75) means one or a few nodes dominate. |\n'
+        '| **neighbor_z_global** | Statistical summary of the global z-score '
+        'distribution across ALL neighbor nodes of this pathway. Format: '
+        'global:n=N;max=X;p75=X;p50=X;p25=X. Global z-scores compare each node\'s '
+        'PPR score against all HGNC gene nodes in the full graph, making this a '
+        'graph-wide reference rather than a within-pathway reference. | Use alongside '
+        'neighbor_z_local to understand whether the pathway\'s neighbors are globally '
+        'prominent (high global max) even when locally flat. A pathway with low '
+        'neighbor_z_local max but high neighbor_z_global max has globally important '
+        'neighbors whose signal is evenly distributed within the pathway — indicating '
+        'broad biological relevance without a single dominant driver. |\n\n'
         '**Key interpretive principles:**\n\n'
         '1. **rank and null_z are complementary, not interchangeable.** Rank reflects '
         'absolute propagated signal; null_z reflects whether the signal is specifically '
@@ -714,15 +731,16 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         '2. **Empty seed_members is not a failure.** It means BIFO recovered the pathway '
         'through graph propagation rather than direct gene overlap — this is the method\'s '
         'key capability and would be missed by standard Fisher enrichment.\n\n'
-        '3. **contributing_seeds is global, not per-pathway.** Do not interpret it as '
-        'the genes driving any individual pathway\'s score — use seed_members and '
-        'seed_member_scores for that.\n\n'
+        '3. **The top globally influential seed genes are listed in the Analysis Summary '
+        'above, not in this table.** They are run-level metadata, identical for all '
+        'pathways. For per-pathway gene drivers, use seed_members and seed_member_scores.\n\n'
         '4. **Degenerate pathways (null_calibrated = FALSE) may still be biologically '
         'interesting** even though their statistical significance cannot be assessed. '
         'They often represent highly connected hub processes.\n\n'
-        '5. **The neighbor_z_summary max values explain the influential_nodes columns.** '
-        'Always check neighbor_z_summary before concluding that an empty '
-        'influential_nodes column indicates missing data.\n'
+        '5. **neighbor_z_local and neighbor_z_global explain the influential_nodes columns.** '
+        'Always check neighbor_z_local max before concluding that an empty '
+        'influential_nodes_local column indicates missing data — if max < 1.96, '
+        'the threshold was simply not met.\n'
     )
     L.append('---\n')
 
@@ -855,6 +873,7 @@ def main():
         include_degenerate = args.include_degenerate,
         n_resolved_seeds   = args.n_resolved_seeds,
         cui_to_symbol      = cui_to_symbol,
+        raw_rows           = rows,
         outpath            = os.path.join(args.outdir, 'pathway_results_llm.md'),
     )
     print("Done.")

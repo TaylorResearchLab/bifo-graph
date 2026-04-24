@@ -49,6 +49,9 @@ def parse_args():
                    help='edges_merged.csv or edges_all_noncc.csv — used to compute '
                         'direct seed-pathway membership overlap (seed_members column). '
                         'Optional; if omitted, seed_members column is omitted.')
+    p.add_argument('--nodes',        default=None,
+                   help='nodes_clean_noncc.csv — used to map CUIs to gene symbols '
+                        'in seed_members and contributing_seeds columns. Optional.')
     p.add_argument('--reference',    default=None,
                    help='Text file of reference pathway CUIs (one per line)')
     p.add_argument('--cohort-name',  default='BIFO run',
@@ -79,7 +82,7 @@ def load_lines(path):
     if not path:
         return set()
     with open(path) as f:
-        return {l.strip() for l in f if l.strip() and not l.startswith('#')}
+        return {l.split()[0] for l in f if l.strip() and not l.startswith('#')}
 
 
 def safe_float(val):
@@ -94,6 +97,33 @@ def safe_bool(val):
     if isinstance(val, str):
         return val.strip().lower() in ('true', '1', 'yes')
     return bool(val)
+
+
+def build_cui_to_symbol(nodes_csv):
+    """Build {CUI: symbol} from nodes CSV (plain or .gz). Returns empty dict if path is None."""
+    if not nodes_csv:
+        return {}
+    import csv as _csv, gzip, io
+    lookup = {}
+    try:
+        opener = gzip.open if nodes_csv.endswith('.gz') else open
+        with opener(nodes_csv, 'rt', encoding='utf-8-sig') as f:
+            for row in _csv.DictReader(f):
+                cid = (row.get('node_id') or row.get('concept_id') or
+                       row.get('id') or '').strip()
+                sym = (row.get('name') or row.get('symbol') or
+                       row.get('pref_term') or row.get('preferred_name') or '').strip()
+                # Skip header artifact rows
+                if not cid or cid.startswith('-') or cid == 'CUI':
+                    continue
+                if cid and sym:
+                    # Strip trailing ' gene' suffix from HGNC gene names
+                    if sym.endswith(' gene'):
+                        sym = sym[:-5].strip()
+                    lookup[cid] = sym
+    except FileNotFoundError:
+        print(f"WARNING: nodes file not found: {nodes_csv}", file=__import__('sys').stderr)
+    return lookup
 
 
 MEMBERSHIP_PREDS_FWD = {
@@ -116,7 +146,9 @@ def build_membership_map(edges_csv, min_members=8, max_members=300):
     import csv as _csv
     pw_to_genes = {}
     try:
-        with open(edges_csv, encoding='utf-8-sig') as f:
+        import gzip as _gzip
+        opener = _gzip.open if edges_csv.endswith('.gz') else open
+        with opener(edges_csv, 'rt', encoding='utf-8-sig') as f:
             for row in _csv.DictReader(f):
                 pred = row.get('predicate', '').strip()
                 src  = row.get('source', row.get('subject', '')).strip()
@@ -133,8 +165,21 @@ def build_membership_map(edges_csv, min_members=8, max_members=300):
             if min_members <= len(genes) <= max_members}
 
 
-def build_summary(rows, reference_ids, seed_ids=None, membership_map=None):
+def build_summary(rows, reference_ids, seed_ids=None, membership_map=None,
+                  cui_to_symbol=None):
     seed_set = frozenset(seed_ids) if seed_ids else frozenset()
+    sym = cui_to_symbol or {}
+
+    def cuis_to_symbols(cui_str, delim='|'):
+        """Convert pipe-separated CUI string to symbol string, falling back to CUI."""
+        if not cui_str:
+            return ''
+        return ';'.join(sym.get(c.strip(), c.strip())
+                        for c in cui_str.split(delim) if c.strip())
+
+    def cui_set_to_symbols(cui_set):
+        """Convert frozenset of CUIs to semicolon-separated symbol string."""
+        return ';'.join(sorted(sym.get(c, c) for c in cui_set))
     for r in rows:
         r['_dn']  = safe_float(r.get('degree_norm', 0)) or 0.0
         r['_cal'] = safe_bool(r.get('null_calibrated', True))
@@ -161,10 +206,10 @@ def build_summary(rows, reference_ids, seed_ids=None, membership_map=None):
             'member_mean_null_z': f"{mnz:.3f}" if mnz is not None else 'NaN',
             'member_mean_q':      f"{mq:.4f}"  if mq  is not None else 'NaN',
             'in_reference':       str(cid in reference_ids) if reference_ids else 'NA',
-            'contributing_seeds': r.get('contributing_seeds', ''),
-            'seed_members':       ';'.join(sorted(
+            'contributing_seeds': cuis_to_symbols(r.get('contributing_seeds', '')),
+            'seed_members':       cui_set_to_symbols(
                                       membership_map.get(cid, frozenset()) & seed_set
-                                  )) if (membership_map is not None and seed_set) else '',
+                                  ) if (membership_map is not None and seed_set) else '',
             '_cal':               r['_cal'],
         })
     return summary
@@ -190,6 +235,7 @@ def write_tsv(summary, outpath):
 LLM_COLS = [
     'rank', 'pathway_name', 'source', 'n_members',
     'degree_norm', 'null_z', 'empirical_q', 'in_reference',
+    'contributing_seeds', 'seed_members',
 ]
 
 
@@ -311,7 +357,9 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         '| **degree_norm** | BIFO score: propagated signal at the pathway node, normalised by pathway size. |\n'
         '| **null_z** | Standard deviations above expected score vs. 1,000 random rewirings. Higher = more specific enrichment. NaN = test not valid. |\n'
         '| **empirical_q** | BH-corrected p-value. q < 0.05 = statistically significant. NaN = not tested. |\n'
-        '| **in_reference** | TRUE if in a pre-specified biologically relevant reference set. |\n\n'
+        '| **in_reference** | TRUE if in a pre-specified biologically relevant reference set. |\n'
+        '| **contributing_seeds** | Seed genes whose PPR signal flowed through the graph and contributed to this pathway\'s score. Includes genes connected through mechanistic edges, not just direct pathway members. |\n'
+        '| **seed_members** | Seed genes that are direct annotated members of this pathway in the source database. This is what Fisher enrichment uses. When contributing_seeds >> seed_members, the pathway was recovered through graph propagation rather than direct overlap. |\n\n'
         '**rank and null_z are complementary, not interchangeable.** '
         'Rank reflects absolute propagated signal; null_z reflects whether signal is '
         'specifically attributable to this pathway\'s gene membership rather than generic '
@@ -398,6 +446,10 @@ def main():
     print(f"  {len(rows)} pathways, {len(seed_ids)} seeds, "
           f"{len(reference_ids)} reference pathways")
 
+    cui_to_symbol = build_cui_to_symbol(args.nodes)
+    if cui_to_symbol:
+        print(f"  {len(cui_to_symbol):,} CUI->symbol mappings loaded")
+
     membership_map = None
     if args.edges_merged:
         print(f"Building membership map from: {args.edges_merged}")
@@ -406,7 +458,8 @@ def main():
 
     summary = build_summary(rows, reference_ids,
                             seed_ids=seed_ids,
-                            membership_map=membership_map)
+                            membership_map=membership_map,
+                            cui_to_symbol=cui_to_symbol)
 
     write_tsv(summary, os.path.join(args.outdir, 'pathway_results_summary.tsv'))
     write_llm(

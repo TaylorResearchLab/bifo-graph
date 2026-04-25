@@ -1,0 +1,48 @@
+# BIFO-PPR Analysis Provenance — KF-NBL
+# Filled out for testing. Replace with real values before submission.
+
+analysis:
+  type: rare-variant-cohort
+  description: >
+    Rare variant pathway enrichment analysis of 460 neuroblastoma
+    probands from the Kids First program using BIFO-conditioned Personalized
+    PageRank over the Data Distillery Knowledge Graph.
+
+cohort:
+  name: KF-NBL
+  disease: neuroblastoma
+  n_probands: 460
+  source: Kids First Pediatric Research Program
+  repository: dbGaP
+  accession: phs001287.v1.p1
+  data_access_url: https://kidsfirstdrc.org
+  demographics: 460 pediatric probands with neuroblastoma
+  irb_protocol: null
+
+knowledge_graph:
+  name: Data Distillery Knowledge Graph (DDKG)
+  version: August 2025 release
+  doi_or_url: https://doi.org/10.1101/2025.08.11.666099
+  export_query_file: /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo-graph/cypher/kf_nbl_export_queries.cypher
+  export_query_text: null
+
+pipeline:
+  bifo_git_commit: 39cf441
+  bifo_ontology_version: v0.7.1
+  bifo_ontology_file: /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo-graph/config/bifo_mapping.yaml
+  pipeline_log_file: /mnt/isilon/taylor_lab/data/projects/BIFO_2026/logs/kf_nbl_score_pathways.log
+  score_pathways_command: null
+  python_version: null
+
+attribution:
+  analyst_name: TEST USER
+  institution: TEST INSTITUTION
+  contact_email: test@test.edu
+  publication_doi: null
+
+notes: |
+  Test provenance file for KF-NBL run. Replace all TEST values with real
+  information before submission. git commit 39cf441 is the last committed
+  version of score_pathways.py and summarize_results.py as of April 24 2026.
+  Note: verify the correct dbGaP accession for the KF neuroblastoma cohort
+  before submission — phs001287 is a placeholder.

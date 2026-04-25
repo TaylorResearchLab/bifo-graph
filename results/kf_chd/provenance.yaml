@@ -1,0 +1,46 @@
+# BIFO-PPR Analysis Provenance — KF-CHD
+# Filled out for testing. Replace with real values before submission.
+
+analysis:
+  type: rare-variant-cohort
+  description: >
+    Rare variant pathway enrichment analysis of 697 congenital heart defect
+    probands from the Kids First program using BIFO-conditioned Personalized
+    PageRank over the Data Distillery Knowledge Graph.
+
+cohort:
+  name: KF-CHD
+  disease: congenital heart disease
+  n_probands: 697
+  source: Kids First Pediatric Research Program
+  repository: dbGaP
+  accession: phs001138.v3.p2
+  data_access_url: https://kidsfirstdrc.org
+  demographics: 697 pediatric probands with congenital heart defects
+  irb_protocol: null
+
+knowledge_graph:
+  name: Data Distillery Knowledge Graph (DDKG)
+  version: August 2025 release
+  doi_or_url: https://doi.org/10.1101/2025.08.11.666099
+  export_query_file: /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo-graph/cypher/kf_chd_export_queries.cypher
+  export_query_text: null
+
+pipeline:
+  bifo_git_commit: 39cf441
+  bifo_ontology_version: v0.7.1
+  bifo_ontology_file: /mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo-graph/config/bifo_mapping.yaml
+  pipeline_log_file: /mnt/isilon/taylor_lab/data/projects/BIFO_2026/logs/kf_chd_score_pathways.log
+  score_pathways_command: null
+  python_version: null
+
+attribution:
+  analyst_name: TEST USER
+  institution: TEST INSTITUTION
+  contact_email: test@test.edu
+  publication_doi: null
+
+notes: |
+  Test provenance file for KF-CHD run. Replace all TEST values with real
+  information before submission. git commit 39cf441 is the last committed
+  version of score_pathways.py and summarize_results.py as of April 24 2026.

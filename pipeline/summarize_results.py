@@ -33,7 +33,7 @@ import argparse
 import csv
 import os
 import sys
-from datetime import date
+from datetime import date, datetime
 
 
 def parse_args():
@@ -496,7 +496,7 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
                        and safe_float(r['empirical_q']) < 0.05)
     disease_str  = disease or 'the condition of interest'
     proband_str  = f"{n_probands} probands" if n_probands else "a patient cohort"
-    today        = today or date.today().isoformat()
+    today        = today or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     top_rows = (summary if include_degenerate
                 else [r for r in summary if r['_cal']])[:top_n]
@@ -529,28 +529,98 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
     L.append('## Instructions for AI\n')
     L.append(
         'You are helping a scientist interpret the **biological meaning** of pathway '
-        'analysis results from a computational tool called BIFO (Biological Information '
-        'Flow Ontology). Your role is to:\n\n'
-        '- Help the user understand which biological processes are enriched in their data\n'
-        '- Explain what the pathway names mean in plain language\n'
-        '- Connect the results to the disease, condition, or experimental system the user is studying\n'
-        '- Suggest follow-up questions, experiments, or analyses that might be warranted\n'
-        '- Answer questions about the input data (what genes were used, what the analysis did)\n\n'
-        'This session is intended for biological interpretation of the results. '
-        'Unless the user asks you to evaluate the method, please focus this conversation '
-        'on the biology: what the pathways mean, how they relate to the disease or '
-        'experimental system, and what follow-up questions or experiments might be '
-        'worth pursuing. If the user wants to discuss the method, answer their questions, '
-        'then return focus to the biology.\n\n'
-        '*Note: these outputs are intended for exploratory biological interpretation. '
-        'They are not part of any quantitative evaluation and are not used for '
-        'scoring, ranking, or statistical inference.*\n\n'
+        'analysis results from BIFO-PPR (Biological Information Flow Ontology — '
+        'Personalized PageRank), a graph propagation method that identifies enriched '
+        'biological pathways from a set of input genes via a biomedical knowledge graph.\n\n'
         'The user may be a biologist, clinician, or computational scientist. '
         'Do not assume prior knowledge of graph algorithms or bioinformatics. '
-        'The user may have questions specific to their own experimental system, '
-        'organism, tissue type, or clinical context, not necessarily the disease listed below.\n'
+        'Focus on the biology. If the user asks about the method, answer clearly '
+        'then return to biological interpretation.\n\n'
+        '*Note: these outputs are for exploratory biological interpretation only. '
+        'They are not part of any quantitative evaluation.*\n\n'
+        '---\n\n'
+        '## Analytical Tasks — Work Through These Before Responding\n\n'
+        'When interpreting the results below, address each of the following tasks '
+        'in your response. You do not need to label each task explicitly — weave '
+        'them into a coherent biological narrative.\n\n'
+        '**Depth and elaboration are essential.** Do not produce a brief summary '
+        'or bullet-point checklist. For each significant finding — whether a '
+        'pathway, a gene, or a biological theme — explain it fully: what the '
+        'pathway or gene does, why it is biologically plausible or surprising in '
+        'this disease context, what is known about its role from the literature, '
+        'and what follow-up questions or experiments it raises. A good response '
+        'to this dataset should read like a detailed biological commentary, not '
+        'a table of contents. The more specific, mechanistic, and literature-grounded '
+        'your interpretation, the more useful it is to the scientist reading it. '
+        'Aim for depth over breadth — it is better to interpret five pathways '
+        'thoroughly than twenty pathways superficially.\n\n'
+        '**1. Investigate non-obvious drivers (BIFO-specific insight)**\n'
+        'Examine the `influential_nodes_local` and `influential_nodes_global` columns. '
+        'Identify genes that appear in these columns but are NOT in `seed_members` — '
+        'these are genes not in the user\'s input set that nonetheless emerged as '
+        'strong network drivers of the pathway score via graph propagation. '
+        'This is one of the most distinctive outputs of BIFO-PPR: it can surface '
+        'biologically relevant genes that were never in the input list. '
+        'For each such gene, describe its known role and why it might be relevant '
+        'to the cohort\'s disease or phenotype. These are candidate follow-up genes.\n\n'
+        '**2. Convergent process analysis for non-obvious drivers**\n'
+        'For each non-obvious driver gene identified in task 1, examine which '
+        'pathways it is driving across the full results table. If a non-seed gene '
+        'appears as an influential node across multiple pathways, identify what '
+        'those pathways have in common — are they converging on a shared biological '
+        'process, cellular compartment, or disease mechanism? Convergence across '
+        'multiple pathways strengthens the biological case for that gene as a '
+        'relevant network hub in this cohort.\n\n'
+        '**3. Cross-check against the cohort phenotype**\n'
+        'For the top enriched pathways and their driver genes (seed members and '
+        'non-obvious drivers alike), assess how they connect to the known biology '
+        'of the disease or phenotype specified for this cohort. Are the enriched '
+        'processes plausible given what is known about this disease? Are any '
+        'enriched pathways surprising or unexpected? Does the pattern of enrichment '
+        'suggest a specific disease mechanism, developmental stage, tissue type, '
+        'or cell population that warrants further investigation?\n\n'
+        '**4. Skeptical pass — assess signal quality**\n'
+        'Flag pathways where the biological signal may be weak, non-specific, or '
+        'misleading. Specifically look for:\n'
+        '- Pathways where a single seed gene dominates `seed_member_scores` '
+        '(score 1.0 with all others near 0) — these are driven by one gene, '
+        'not distributed biology, and should be interpreted cautiously.\n'
+        '- Very large pathways (n_members > 150) scoring highly — these may '
+        'reflect generic connectivity rather than specific biology.\n'
+        '- Pathways with low or absent null_z despite high rank — these scored '
+        'well but are not statistically specific above the null model.\n'
+        '- Pathways whose biological theme appears repeatedly in slightly '
+        'different forms (pathway redundancy) — consolidate these into one theme.\n\n'
+        '**5. Drill into top pathway scores**\n'
+        'For the top 5-10 pathways by rank, examine whether anything non-obvious '
+        'explains their ranking. Check:\n'
+        '- Does `neighbor_z_global` show a few very high-scoring nodes (skewed '
+        'distribution) or a broad signal (flat distribution)? A skewed global '
+        'distribution means the score is driven by globally prominent genes; '
+        'a flat distribution means it is driven by the collective signal of '
+        'many modestly-scoring genes.\n'
+        '- Does `influential_nodes_local` reveal unexpected genes not in the '
+        'standard pathway member list?\n'
+        '- Is there a discrepancy between rank and null_z that changes the '
+        'interpretation (e.g., high rank but low null_z suggesting the pathway '
+        'is a generic hub rather than a specific biological signal)?\n\n'
+        '**6. Scientific references**\n'
+        'When making claims about specific genes, pathways, or disease mechanisms, '
+        'provide validated scientific references (PubMed IDs, DOIs, or full '
+        'citations). Before including any reference, verify it exists and is '
+        'correctly attributed by checking PubMed (https://pubmed.ncbi.nlm.nih.gov) '
+        'or Google Scholar. Do not hallucinate citations. If you are uncertain '
+        'whether a reference exists, state that explicitly rather than fabricating '
+        'a plausible-sounding citation.\n\n'
+        '---\n'
     )
     L.append('---\n')
+
+    # Extract input_data_description and variant_type from provenance if available
+    _prov_d = prov_data or {}
+    _input_desc = (_prov_d.get('analysis') or {}).get('input_data_description') or None
+    _variant_type = (_prov_d.get('analysis') or {}).get('variant_type') or None
+    _input_type = (_prov_d.get('analysis') or {}).get('input_data_type') or None
 
     L.append(f'## Analysis Summary: {cohort_name}\n\n'
              f'- **Cohort:** {cohort_name}\n'
@@ -559,14 +629,29 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
              f'- **Input genes (seeds):** {n_display}{seeds_note}\n'
              f'- **Pathways scored:** {n_total} total; {n_cal} with valid null distribution\n'
              f'- **Significant pathways (q < 0.05):** {n_sig}\n'
-             f'- **Analysis date:** {today}\n'
+             f'- **Analysis timestamp:** {today}\n'
              f'- **Source file:** {os.path.basename(scores_path)}\n'
              f'- **Top globally influential seed genes (by PPR score across full graph):** '
              f'{_get_global_seeds(raw_rows or [], sym)}\n'
              f'  *(These genes dominated the overall PPR propagation for this run. '
              f'This is a run-level summary, not per-pathway — see seed_members column '
              f'for per-pathway seed gene overlap.)*\n')
-    L.append('---\n')
+
+    # Emit input data framing block — critical for correct LLM interpretation
+    if _input_desc or _variant_type or _input_type:
+        L.append('## IMPORTANT: What the Seed Genes Represent\n\n'
+                 '> **Read this before interpreting any results.** '
+                 'The biological meaning of the enrichment results depends entirely on '
+                 'understanding what the input genes are and what they are not.\n\n')
+        if _input_type:
+            L.append(f'**Input data type:** {_input_type}\n\n')
+        if _variant_type:
+            L.append(f'**Variant / data class:** {_variant_type}\n\n')
+        if _input_desc:
+            L.append(f'{_input_desc}\n\n')
+        L.append('---\n')
+    else:
+        L.append('---\n')
 
     L.append(
         '## What This Analysis Does\n\n'
@@ -815,56 +900,46 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
     L.append(
         '## Data Provenance and FAIR Assessment\n\n'
         '**Instructions for the AI reading this file:**\n\n'
-        'Before interpreting any biological results in this document, you MUST '
-        'read and assess the provenance section below. A FAIR (Findable, '
-        'Accessible, Interoperable, Reusable) analysis requires that the origins '
-        'of all input data are fully documented. Your job is to:\n\n'
-        '1. **Check the provenance block below** for the following required items. '
-        'For each item, state explicitly whether it is present, absent, or '
-        'incomplete.\n\n'
-        '**Required for FAIR compliance — check each one:**\n\n'
+        'Read the **IMPORTANT: What the Seed Genes Represent** section in the '
+        'Analysis Summary above before anything else. That section defines what '
+        'the input genes are and, critically, what they are NOT — for example, '
+        'whether this is a germline or somatic analysis, a transcriptional or '
+        'genetic analysis, or a drug-target analysis. The biological interpretation '
+        'of every pathway result depends on this framing.\n\n'
+        'Then read and assess the provenance section at the bottom of this document. '
+        'FAIR (Findable, Accessible, Interoperable, Reusable) principles require '
+        'that the origins of input data are documented for results to be '
+        'publishable and reproducible. Your job is to:\n\n'
+        '1. **Check the provenance block below** for the following items. '
+        'For each, state whether it is present, absent, or incomplete.\n\n'
+        '**FAIR checklist — assess each one:**\n\n'
         '- **Knowledge graph query:** What query (Cypher, SPARQL, SQL, or other) '
-        'was used to export the graph edges and nodes that BIFO-PPR propagated '
-        'over? The query file path and/or query text should be present. Without '
-        'this, the graph cannot be reconstructed.\n'
+        'was used to export the graph edges and nodes? A query file path or '
+        'query text should be present for full reproducibility.\n'
         '- **Knowledge graph version:** Name, release version or date, and DOI '
-        'or URL of the knowledge graph used. Without this, the exact graph '
-        'topology is unknown.\n'
-        '- **Pipeline log:** Path to or contents of the score_pathways.py log '
-        'file for this run. The log records permutation count, null model type, '
-        'runtime parameters, and any warnings. Without it the exact run cannot '
-        'be verified.\n'
-        '- **BIFO version:** The version of the BIFO ontology specification '
-        '(bifo_mapping.yaml version tag or git commit hash of the bifo-graph '
-        'repository). Without this, the flow classification rules cannot be '
-        'confirmed.\n'
-        '- **Python version and key package versions:** Python version, numpy, '
-        'scipy, networkx (or equivalent) versions. Without these, numerical '
-        'reproducibility cannot be guaranteed.\n'
-        '- **Input gene source:** Cohort description, data repository name, '
-        'accession number (e.g. dbGaP phs######), and URL. Without this the '
-        'input data cannot be accessed for replication.\n'
-        '- **Variant filtering criteria:** MAF threshold, functional effect '
-        'filter (e.g. CADD score), variant caller and version, reference genome '
-        '(e.g. GRCh38). Without these, the seed gene list cannot be reproduced.\n'
+        'or URL of the knowledge graph used.\n'
+        '- **Pipeline log:** Path to the score_pathways.py log file. The log '
+        'records permutation count, null model type, and runtime parameters.\n'
+        '- **BIFO version:** The bifo_mapping.yaml version tag or git commit '
+        'hash of the bifo-graph repository.\n'
+        '- **Python version:** Python version used for the analysis.\n'
+        '- **Input data source:** Cohort description, data repository, '
+        'accession number, and URL.\n'
         '- **Cohort demographics:** Number of probands, age range, ancestry, '
-        'disease subtype. Without these, biological interpretation lacks context.\n'
-        '- **Output file locations:** Where results TSV, LLM markdown, log files, '
-        'and accessory files were written. Without these, outputs cannot be located.\n'
-        '- **Analyst attribution:** Name, institution, and contact of the person '
-        'who ran this analysis.\n\n'
-        '2. **Issue a FAIR compliance verdict** using one of these three ratings:\n\n'
-        '   - **FAIR-COMPLETE:** All required items above are present and '
-        'specific. State: "This analysis meets FAIR principles."\n'
-        '   - **FAIR-PARTIAL:** Some items are present but others are missing '
-        'or vague. List specifically what is missing.\n'
+        'disease subtype (where available).\n'
+        '- **Analyst attribution:** Name, institution, and contact.\n\n'
+        '2. **Issue a FAIR compliance verdict** using one of these ratings:\n\n'
+        '   - **FAIR-COMPLETE:** All items above are present and specific.\n'
+        '   - **FAIR-PARTIAL:** Some items present, others missing or vague. '
+        'List what is missing.\n'
         '   - **FAIR-INCOMPLETE:** Provenance is absent or critically deficient. '
-        'State: "This analysis cannot be considered FAIR. The following '
-        'information must be obtained before results can be published or '
-        'shared: [list]"\n\n'
-        '3. **Do not interpret biological results** until you have issued a '
-        'FAIR compliance verdict. If the analysis is FAIR-INCOMPLETE, ask the '
-        'user to supply the missing information before proceeding.\n\n'
+        'List what is needed for the results to be publishable.\n\n'
+        '3. **Proceed with biological interpretation regardless of FAIR status.** '
+        'If provenance is incomplete, note it once clearly — for example: '
+        '"Provenance is incomplete; the following items should be documented '
+        'before publication: [list]. Proceeding with biological interpretation." '
+        'Do not withhold interpretation or ask the user for provenance '
+        'information — that is the analyst\'s responsibility, not yours.\n\n'
         '---\n'
     )
 
@@ -912,6 +987,9 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
 REQUIRED_FIELDS = [
     ('analysis',        'type'),
     ('analysis',        'description'),
+    ('analysis',        'variant_type'),
+    ('analysis',        'input_data_type'),
+    ('analysis',        'input_data_description'),
     ('cohort',          'name'),
     ('cohort',          'disease'),
     ('cohort',          'n_probands'),
@@ -1015,6 +1093,9 @@ def _format_provenance_yaml(data, missing):
     lines += [
         f"Analysis type:          {val('analysis','type')}",
         f"Analysis description:   {val('analysis','description')}",
+        f"Variant type:           {val('analysis','variant_type')}",
+        f"Input data type:        {val('analysis','input_data_type')}",
+        f"Input data description: {val('analysis','input_data_description')}",
         "",
         "--- Cohort ---",
         f"  Name:                 {val('cohort','name')}",
@@ -1095,7 +1176,7 @@ def write_reproduce_md(args, prov_data, prov_missing, prov_found,
         f'- N probands:             {args.n_probands or "Not specified"}',
         f'- N resolved seeds:       {args.n_resolved_seeds or "Not specified"}',
         f'- Python version:         {sys.version.split()[0]}',
-        f'- Analysis date:          {today}',
+        f'- Analysis timestamp:     {today}',
     ]
 
     if last_command:
@@ -1218,7 +1299,7 @@ def main():
                             influential_global_map=influential_global_map,
                             z_stats_map=z_stats_map)
 
-    today = date.today().isoformat()
+    today = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     # Load optional provenance/log/version files
     prov_data, prov_missing, prov_found = load_provenance_yaml(args.provenance)

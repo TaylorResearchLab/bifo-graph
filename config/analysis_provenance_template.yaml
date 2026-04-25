@@ -16,7 +16,57 @@
 
 analysis:
   type: null                    # REQUIRED: rare-variant-cohort | drug-target | phenotype-gene | custom
+                               # NOTE: currently only rare-variant-cohort is operational in this pipeline.
+                               # Other analysis types (drug-target, phenotype-gene, custom) are reserved
+                               # for future implementation.
   description: null             # REQUIRED: one sentence describing this analysis and why it was run
+  variant_type: null            # REQUIRED for genetic analyses: germline | somatic | both | not-applicable
+                               # Set to not-applicable for transcriptional, drug-target, or other
+                               # non-variant analyses.
+  input_data_type: null         # REQUIRED: controlled vocabulary describing the seed entity type.
+                               # e.g.: germline-rare-variants | somatic-mutations |
+                               #       differentially-expressed-genes | drug-targets |
+                               #       phenotype-associated-genes | custom
+  input_data_description: null  # REQUIRED: 2-3 sentences describing exactly what the seed list
+                               # represents AND what it does not represent. This text is passed
+                               # directly to the LLM to frame biological interpretation.
+                               #
+                               # Example for germline CHD analysis:
+                               #   "Seeds are genes carrying predicted deleterious germline variants
+                               #    (MAF<0.01, CADD>=20) in 697 pediatric CHD probands. This is a
+                               #    germline rare variant analysis — not a somatic mutation analysis.
+                               #    Canonically somatic drivers (e.g. oncogene amplifications,
+                               #    structural rearrangements) are not expected in the seed list."
+                               #
+                               # Example for transcriptional analysis:
+                               #   "Seeds are differentially expressed genes (FDR<0.05, |log2FC|>1)
+                               #    from RNA-seq of cardiac tissue vs. controls. This is a
+                               #    transcriptional enrichment analysis, not a genetic variant
+                               #    analysis. Seed genes may include both drivers and responders."
+                               #
+                               # Example for drug-target analysis:
+                               #   "Seeds are known direct protein targets of [drug name]. This
+                               #    analysis identifies pathways enriched among the drug's target
+                               #    network, not among disease-associated genes." 
+  variant_type: null            # REQUIRED for genetic analyses: germline | somatic | both | not-applicable
+                               # Set to not-applicable for transcription, drug-target, phenotype-gene analyses.
+  input_data_type: null         # REQUIRED: what are the seed entities?
+                               # e.g.: germline-rare-variants | somatic-mutations |
+                               # differentially-expressed-genes | drug-targets |
+                               # phenotype-associated-genes | custom
+  input_data_description: null  # REQUIRED: 2-3 sentences describing exactly what the seed list
+                               # represents AND what it does NOT represent. This text is passed
+                               # directly to the LLM to frame biological interpretation.
+                               # Example (germline CHD):
+                               #   "Seeds are genes carrying predicted deleterious germline variants
+                               #    (MAF<0.01, CADD>=20) in 697 pediatric CHD probands. This is a
+                               #    germline rare variant analysis. Canonically somatic drivers are
+                               #    not expected in the seed list."
+                               # Example (transcription):
+                               #   "Seeds are differentially expressed genes (FDR<0.05, |log2FC|>1)
+                               #    from RNA-seq of cardiac tissue vs controls. This is a
+                               #    transcriptional enrichment analysis, not a genetic variant
+                               #    analysis." 
 
 cohort:
   name: null                    # REQUIRED: short label e.g. KF-CHD

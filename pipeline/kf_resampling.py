@@ -123,7 +123,18 @@ def ppr(A_T: sparse.csr_matrix, seed_idx: List[int], n: int,
 
 
 def build_membership(edges_csv: str, min_members: int = 8,
-                     max_members: int = 300):
+                     max_members: int = 300,
+                     excluded_patterns: list = None):
+    """
+    Build pathway membership map from edges file.
+
+    Applies size filters (min_members, max_members) and optionally excludes
+    pathways whose IDs match any string in excluded_patterns. This is used to
+    remove gene expression quantile sets (e.g. _Q2 through _Q6) and microRNA
+    target sets (MIR) from the resampling universe, as these represent
+    statistical partitions rather than curated biological programs. See
+    Methods §5.4 and §9 for the name-pattern filter rationale.
+    """
     MEMBERSHIP_PREDS = {
         'pathway_associated_with_gene', 'inverse_pathway_associated_with_gene',
         'has_signature_gene', 'inverse_has_signature_gene',
@@ -145,9 +156,11 @@ def build_membership(edges_csv: str, min_members: int = 8,
             else:
                 pw_to_genes[tgt].add(src)
                 gene_universe.add(src)
+    excl = excluded_patterns or []
     membership = {pw: frozenset(genes)
                   for pw, genes in pw_to_genes.items()
-                  if min_members <= len(genes) <= max_members}
+                  if min_members <= len(genes) <= max_members
+                  and not any(pat in pw for pat in excl)}
     return membership, gene_universe
 
 
@@ -335,8 +348,14 @@ def run(args):
     print(f"  Raw: {A_raw.nnz:,} edges")
 
     print("\n[2/5] Building pathway membership...")
+    # Exclude quantile-binned gene sets and miRNA target sets from the
+    # resampling universe — these are statistical partitions, not biological
+    # programs. Consistent with name-pattern filter in score_pathways.py
+    # and documented in Methods §5.4 and §9.
+    _excluded_patterns = ['_Q2', '_Q3', '_Q4', '_Q5', '_Q6', 'MIR']
     membership, gene_universe = build_membership(args.edges_merged,
-                                                  args.min_members, args.max_members)
+                                                  args.min_members, args.max_members,
+                                                  excluded_patterns=_excluded_patterns)
     if args.bifo_scores and Path(args.bifo_scores).exists():
         membership = filter_to_bifo_universe(args.bifo_scores, membership)
     print(f"  {len(membership):,} pathways in universe")

@@ -298,7 +298,7 @@ python3 pipeline/baseline_enrichment.py \
 
 ## Analysis 3 — KF-NBL Cohort (Results §7, Methods §10–15)
 
-Independent neuroblastoma cohort (554 probands, dbGaP phs001436). Same pipeline as KF-CHD. Seed CUIs: `data/cohorts/nbl/kf_nbl_seed_cuis.txt` (1,395 CUIs; 1,395/1,406 resolved). Frozen outputs in `results/kf_nbl/`.
+Independent neuroblastoma cohort (460 probands, dbGaP phs001436). Same pipeline as KF-CHD. Seed CUIs: `data/cohorts/nbl/kf_nbl_seed_cuis.txt` (1,395 CUIs; 1,395/1,406 resolved). Frozen outputs in `results/kf_nbl/`.
 
 Seed file: `kf_nbl_seed_cuis.txt` (1,395 CUIs; NBL rare variant carriers at MAF ≤ 0.001)
 
@@ -570,27 +570,51 @@ See `BENCHMARK_MANIFEST.md` for complete parameter documentation and expected ou
 
 ## Generating Summary Output Files
 
-After running `score_pathways.py`, use `summarize_results.py` to produce two output files for each cohort or benchmark run:
+After running `score_pathways.py`, use `summarize_results.py` to produce three output files per cohort: `pathway_results_summary.tsv`, `pathway_results_llm.md`, and `RUN_PROVENANCE.md`. The canonical invocations used to produce the frozen outputs in `results/kf_chd/` and `results/kf_nbl/` are below. Both cohorts can be run in parallel; logs are written to `/mnt/isilon/taylor_lab/data/projects/BIFO_2026/logs/`.
 
 ```bash
-python pipeline/summarize_results.py \
-    --scores        results/kf_chd/pathway_scores_standard.csv \
-    --seeds         data/cohorts/chd/kf_chd_seeds.txt \
-    --reference     data/cohorts/chd/kf_chd_cilia_reference.txt \
-    --cohort-name   "KF-CHD" \
-    --disease       "congenital heart disease" \
-    --n-probands    697 \
-    --outdir        results/kf_chd/
+nohup python3 pipeline/summarize_results.py \
+  --scores              results/kf_chd/pathway_scores_standard.csv \
+  --seeds               data/cohorts/chd/kf_chd_seed_cuis.txt \
+  --edges-merged        results/kf_chd/edges_all_noncc.csv \
+  --nodes               results/kf_chd/nodes_clean_noncc.csv.gz \
+  --reference           data/cohorts/chd/kf_chd_cilia_reference.txt \
+  --member-scores       results/kf_chd/pathway_member_scores.tsv \
+  --influential-nodes   results/kf_chd/pathway_influential_nodes.tsv \
+  --provenance          results/kf_chd/provenance.yaml \
+  --cohort-name         "KF-CHD" \
+  --disease             "congenital heart disease" \
+  --n-probands          697 \
+  --n-resolved-seeds    1276 \
+  --outdir              results/kf_chd/ \
+  > /mnt/isilon/taylor_lab/data/projects/BIFO_2026/logs/kf_chd_summarize.log 2>&1 &
+echo "KF-CHD summarize PID: $!"
+
+nohup python3 pipeline/summarize_results.py \
+  --scores              results/kf_nbl/pathway_scores_standard.csv \
+  --seeds               data/cohorts/nbl/kf_nbl_seed_cuis.txt \
+  --edges-merged        results/kf_nbl/edges_all_noncc.csv \
+  --nodes               results/kf_nbl/nodes_clean_noncc.csv.gz \
+  --reference           data/cohorts/nbl/kf_nbl_cilia_reference.txt \
+  --member-scores       results/kf_nbl/pathway_member_scores.tsv \
+  --influential-nodes   results/kf_nbl/pathway_influential_nodes.tsv \
+  --provenance          results/kf_nbl/provenance.yaml \
+  --cohort-name         "KF-NBL" \
+  --disease             "neuroblastoma" \
+  --n-probands          460 \
+  --n-resolved-seeds    1395 \
+  --outdir              results/kf_nbl/ \
+  > /mnt/isilon/taylor_lab/data/projects/BIFO_2026/logs/kf_nbl_summarize.log 2>&1 &
+echo "KF-NBL summarize PID: $!"
 ```
 
 **Output 1: `pathway_results_summary.tsv`**
-Machine-readable table of all scored pathways with clean column names. Suitable for direct loading in R, Python, or Excel. One row per pathway, sorted by degree_norm rank. Includes rank, degree_norm, null_z, empirical_q, null_calibrated, member_mean_null_z, and in_reference columns.
+Machine-readable table of all scored pathways with clean column names. Suitable for direct loading in R, Python, or Excel. One row per pathway, sorted by degree_norm rank. Includes rank, degree_norm, null_z, empirical_q, null_calibrated, member_mean_null_z, member_mean_q, in_reference, plus per-pathway gene scoring columns (seed_members, seed_member_scores, influential_nodes_local, influential_nodes_global, neighbor_z_local, neighbor_z_global).
 
 **Output 2: `pathway_results_llm.md`**
-Structured markdown document for input to a large language model (LLM). Contains a role instruction, biological context, column interpretation guide, top-50 results table, seed gene list, and suggested questions. Paste into ChatGPT, Claude, or any LLM to discuss the biological meaning of results without prior knowledge of BIFO.
+Structured markdown document for input to a large language model (LLM). Contains a role instruction, biological context, column interpretation guide, top-50 results table, seed gene list, and suggested questions. Paste into ChatGPT, Claude, or any LLM to discuss the biological meaning of results without prior knowledge of BIFO. Verbatim LLM responses to this document are reproduced as `content/08.llm_interpretation.md` in the manuscript.
 
-For the KF-CHD and KF-NBL cohorts, the seed files are:
-- `data/cohorts/chd/kf_chd_seeds.txt`
-- `data/cohorts/nbl/kf_nbl_seeds.txt`
+**Output 3: `RUN_PROVENANCE.md`**
+Run-time provenance record listing input files, output files, analysis timestamp, and Python version, plus a cross-reference to `last_command.txt` (also written) capturing the exact `score_pathways.py` invocation. Together with `provenance.yaml` (the static cohort/knowledge-graph metadata), this file documents the analytical conditions under which the cohort outputs were produced.
 
-Run `python pipeline/summarize_results.py --help` for all options.
+Run `python3 pipeline/summarize_results.py --help` for all options. The `--member-scores` and `--influential-nodes` flags are optional but recommended; without them the LLM input document and summary TSV omit per-pathway gene-level columns.

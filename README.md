@@ -46,14 +46,14 @@ bifo-graph/
 │
 ├── config/
 │   └── bifo_mapping.yaml   BIFO edge admissibility rules (v0.7.1)
-│                                251 predicate-to-flow entries, 5 classification tiers
+│                                252 predicate-to-flow entries, 5 classification tiers
 │
 ├── cypher/                      Neo4j export queries (one file per benchmark/cohort)
 │   ├── chd_curated_export_queries.cypher   CHD curated benchmark
 │   ├── c4_notch_export_queries.cypher      C4/Notch pathway-split control
 │   ├── c4_mapk_export_queries.cypher       C4/MAPK pathway-split control
-│   ├── kf_chd_export_queries.cypher        KF-CHD cohort (Kids First)
-│   └── kf_nbl_export_queries.cypher        KF-NBL cohort (Kids First)
+│   ├── kf_chd_export_queries.cypher        KF-CHD cohort, 1,276 seeds (regenerated at runtime by run_kf_chd_export.sh)
+│   └── kf_nbl_export_queries.cypher        KF-NBL cohort, 1,395 seeds (regenerated at runtime by run_kf_nbl_export.sh)
 │
 ├── data/
 │   ├── benchmark/               Curated CHD benchmark and C4 control data
@@ -88,12 +88,17 @@ bifo-graph/
 │           └── kf_nbl_cilia_reference.txt  MSigDB cilia pathway reference set (16 CUIs)
 │
 ├── examples/
-│   └── minimal_test/            Self-contained 15-gene CHD end-to-end test
-│       ├── README.md            Instructions for the minimal test run
-│       ├── neo4j_export.cypher  Export query for minimal test graph
-│       ├── seed_nodes.txt       10 CHD seed genes (HGNC CUIs)
-│       ├── heldout_nodes.txt    5 held-out CHD genes
-│       └── run_test.sh          One-command test run script
+│   ├── minimal_test/            Self-contained 15-gene CHD end-to-end test
+│   │   ├── README.md            Instructions for the minimal test run
+│   │   ├── neo4j_export.cypher  Export query for minimal test graph
+│   │   ├── seed_nodes.txt       10 CHD seed genes (HGNC CUIs)
+│   │   ├── heldout_nodes.txt    5 held-out CHD genes
+│   │   └── run_test.sh          One-command test run script
+│   │
+│   └── strict_filter/           Strict-filter exemplar cypher (MAF≤0.0001, n≥3)
+│       ├── README.md            Notes on filter distinction vs production
+│       ├── kf_chd_export_queries.cypher   56-seed CHD exemplar
+│       └── kf_nbl_export_queries.cypher   88-seed NBL exemplar
 │
 ├── BENCHMARK_MANIFEST.md        Frozen parameter registry and expected output metrics
 ├── REPRODUCE.md                 Exact commands to reproduce all manuscript results
@@ -170,6 +175,17 @@ bifo-graph/
         ├── resampling_summary.json         Bootstrap resampling summary
         └── resampling_results.csv          Per-bootstrap resampling results
 ```
+
+**Note on cypher reproducibility:** The KF-CHD and KF-NBL production cypher
+files in `cypher/` were generated programmatically from the seed CUI lists at
+`data/cohorts/{chd,nbl}/kf_*_seed_cuis.txt` using
+`pipeline/generate_export_cypher.py`. The shell wrappers
+`scripts/run_kf_{chd,nbl}_export.sh` regenerate this cypher at runtime from
+the committed seed list, then run it via cypher-shell against a Neo4j DDKG
+instance. The committed cypher in `cypher/` is the canonical production version;
+strict-filter exemplars from earlier filter exploration are preserved at
+`examples/strict_filter/` for reference and for fast small-scale testing
+(see `examples/strict_filter/README.md` for the filter distinction).
 
 ---
 
@@ -370,7 +386,7 @@ are in `data/benchmark/`.
 ## Key configuration: `config/bifo_mapping.yaml`
 
 The YAML file encodes the BIFO flow class definitions (v0.7.1):
-- **251** predicate-to-flow class entries
+- **252** predicate-to-flow class entries
 - **96** explicit non-flow (excluded) predicate designations
 - **46** observational edge definitions
 - **5** classification tiers: `mechanistic`, `weak_mechanistic_or_observational`,

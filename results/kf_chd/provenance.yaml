@@ -1,5 +1,5 @@
 # BIFO-PPR Analysis Provenance — KF-CHD
-# Filled out for testing. Replace with real values before submission.
+# Filled out for testing. Replace TEST values with real information before submission.
 
 analysis:
   type: rare-variant-cohort
@@ -7,6 +7,17 @@ analysis:
     Rare variant pathway enrichment analysis of 697 congenital heart defect
     probands from the Kids First program using BIFO-conditioned Personalized
     PageRank over the Data Distillery Knowledge Graph.
+  variant_type: germline
+  input_data_type: germline-rare-variants
+  input_data_description: >
+    Seeds are genes carrying predicted deleterious germline variants (MAF<0.01,
+    CADD>=20) in 697 pediatric congenital heart defect probands from the Kids
+    First Pediatric Research Program. This is a germline rare variant analysis
+    — not a somatic mutation analysis. Canonically somatic drivers such as
+    oncogene amplifications or structural rearrangements are not expected in
+    the seed list. The enrichment signal reflects germline genetic burden
+    across the cohort, not the somatic oncogenic landscape of any individual
+    tumor.
 
 cohort:
   name: KF-CHD

@@ -1,0 +1,242 @@
+# KF-CHD Disease-Relevant Gene Reference Set
+# §SM5.2 disease-relevant subset analysis — congenital heart disease
+#
+# Source: Jin SC, Homsy J, Zaidi S, et al. (2017). Contribution of rare
+#   inherited and de novo variants in 2,871 congenital heart disease
+#   probands. Nat Genet 49(11):1593-1601. doi:10.1038/ng.3970
+#   PMCID: PMC5675000
+#
+# Specifically: 212 Human CHD genes (H-CHD) from Supplementary Data Set 2,
+# curated by the authors from the Online Mendelian Inheritance in Man (OMIM)
+# database and published CHD literature. Comprises 104 dominant, 85 recessive,
+# 12 X-linked, and 11 mixed-mode inheritance genes.
+#
+# This file does NOT include the 41 Mouse CHD genes (M-CHD, human orthologs
+# of mouse CHD screen hits from Li et al. 2015) included in the full
+# Supplementary Data Set 2. Use of human-curated genes only matches the
+# evidentiary tier of the Kim et al. 2023 NBL panel for cohort symmetry
+# in §SM5.2.
+#
+# Format: one HGNC symbol per line. Comments (#) ignored.
+# To be intersected with kf_chd_seed_cuis.txt for §SM5.2 disease-relevant
+# subset analysis.
+#
+# Co-author note: Elizabeth Goldmuntz (Children's Hospital of Philadelphia)
+# is a co-author on the Jin 2017 paper and a co-investigator on the BIFO
+# Paper 1 grant. The CHD pool source is therefore a peer-reviewed cohort
+# study with internal review continuity.
+#
+# Number of genes: 212
+#
+ABCC9
+ABCD3
+ACTB
+ACVR2B
+ADAMTS10
+ADNP
+ANKRD11
+ARHGAP31
+ARID1A
+ARL13B
+ARL6
+ARMC4
+ASXL1
+ATIC
+B3GALT6
+BBS1
+BBS10
+BBS12
+BBS2
+BBS4
+BBS5
+BBS7
+BBS9
+BCOR
+BRAF
+C5ORF42
+CACNA1C
+CBL
+CCDC103
+CCDC114
+CCDC151
+CCDC39
+CCDC40
+CD96
+CDKN1C
+CEP290
+CEP41
+CEP57
+CFC1
+CHD4
+CHD7
+CHST3
+CITED2
+COL1A1
+COL1A2
+COL2A1
+COL3A1
+COL5A1
+COL5A2
+COX7B
+CREBBP
+CRELD1
+DDX11
+DGCR2
+DHCR7
+DNAAF1
+DNAAF2
+DNAAF3
+DNAH11
+DNAH5
+DNAI1
+DNAI2
+DNAL1
+DOCK6
+DYNC2H1
+DYX1C1
+ECE1
+EFTUD2
+EHMT1
+ELN
+EOGT
+ESCO2
+EVC
+EVC2
+FBN1
+FBN2
+FGF8
+FGFR1
+FIG4
+FKTN
+FLNA
+FOXC1
+FOXC2
+FTO
+GATA4
+GATA6
+GDF1
+GJA1
+GLI3
+GPC3
+GPC6
+HCCS
+HOXA1
+HRAS
+IFT122
+IFT140
+IFT80
+INVS
+IRX5
+JAG1
+KANSL1
+KAT6B
+KIF7
+KMT2A
+KMT2D
+KRAS
+LBR
+LEFTY2
+LRP2
+LTBP4
+MAP2K1
+MAP2K2
+MED12
+MED13L
+MEGF8
+MGP
+MID1
+MKKS
+MKS1
+MYH6
+NEK1
+NEK8
+NF1
+NIPBL
+NKX2-5
+NKX2-6
+NME8
+NODAL
+NOTCH1
+NOTCH2
+NPHP3
+NPHP4
+NR2F2
+NRAS
+NSD1
+NSDHL
+OFD1
+PEX1
+PEX13
+PHGDH
+PITX2
+PKD1
+PKD1L1
+PKD2
+PLOD1
+PQBP1
+PTEN
+PTPN11
+RAB23
+RAD21
+RAF1
+RAI1
+RBM10
+RBM8A
+RIT1
+RNU4ATAC
+ROR2
+RPGRIP1L
+RPL11
+RPL35A
+RPL5
+RPS10
+RPS17
+RPS19
+RPS24
+RPS26
+RPS7
+RSPH4A
+RSPH9
+SALL1
+SEMA3E
+SETBP1
+SF3B4
+SH3PXD2B
+SHH
+SHOC2
+SKI
+SMAD3
+SMAD4
+SMARCA4
+SMARCB1
+SMARCE1
+SMC3
+SMS
+SOS1
+SOX2
+SOX9
+STAMBP
+STRA6
+TAB2
+TBX1
+TBX20
+TBX3
+TBX5
+TCOF1
+TFAP2B
+TGFBR1
+TGFBR2
+TLL1
+TRIM32
+TSC1
+TSC2
+TTC21B
+TTC8
+TWIST1
+UBR1
+WDR19
+WDR35
+WDR60
+ZEB2
+ZFPM2
+ZIC3

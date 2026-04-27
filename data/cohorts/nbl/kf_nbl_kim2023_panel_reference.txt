@@ -1,0 +1,202 @@
+# KF-NBL Disease-Relevant Gene Reference Set (Panel Pool)
+# §SM5.2 disease-relevant subset analysis — neuroblastoma germline predisposition
+#
+# Source: Kim J, Vaksman Z, Egolf LE, et al. (2023). Germline pathogenic
+#   variants in 786 neuroblastoma patients. medRxiv 2023.01.23.23284864.
+#   doi:10.1101/2023.01.23.23284864
+#   PMCID: PMC9901064
+#
+# Specifically: 166 cancer predisposition genes (CPGs) comprising the
+# Illumina custom capture (CAP) panel newly designed for the Kim et al.
+# 2023 study, as listed in Supplementary eTable 2. The panel was assembled
+# pre-analysis to assay rare germline pathogenic variation in the 786
+# neuroblastoma cohort.
+#
+# This is the broader "panel-level" disease-relevant pool. A more conservative
+# subset of 54 genes — those with at least one observed P-LP variant in the
+# 786-patient cohort, from eTable 3 — is also available as
+# kf_nbl_kim2023_observed_reference.txt for sensitivity analysis. See the
+# §SM5.2 design note: panel pool tests "all genes selected as candidates";
+# observed pool tests "all genes empirically validated in this cohort."
+#
+# 48 of 166 genes are flagged as DNA repair genes (per eTable 2). DNA repair
+# pathway gene set is enriched in NBL cases vs. controls (8.1% vs 5.7%,
+# P = 0.011) per the Kim 2023 results.
+#
+# Format: one HGNC symbol per line. Comments (#) ignored.
+# To be intersected with kf_nbl_seed_cuis.txt for §SM5.2 disease-relevant
+# subset analysis.
+#
+# Co-author note: Sharon Diskin (Children's Hospital of Philadelphia) is
+# senior author on the Kim 2023 paper and a co-PI on the U24 grant under
+# which this BIFO paper is being conducted. The NBL pool source is
+# therefore a peer-reviewed cohort study with internal review continuity.
+#
+# Number of genes: 166
+#
+ABCB11
+ALK
+APC
+AR
+ATM
+ATR
+AXIN2
+BAP1
+BARD1
+BLM
+BMPR1A
+BRAF
+BRCA1
+BRCA2
+BRIP1
+BUB1B
+CASC15
+CBL
+CDC73
+CDH1
+CDK4
+CDKN1B
+CDKN1C
+CDKN2A
+CEBPA
+CHEK2
+COL7A1
+CPZ
+CREBBP
+CYLD
+DDB2
+DICER1
+DIS3L2
+DKC1
+DOCK8
+DUSP12
+EDNRB
+EGFR
+ELANE
+EP300
+EPCAM
+ERCC1
+ERCC2
+ERCC3
+ERCC4
+ERCC5
+EXT1
+EXT2
+EZH2
+FAH
+FANCA
+FANCB
+FANCC
+FANCD2
+FANCE
+FANCF
+FANCG
+FANCI
+FANCL
+FANCM
+FGFR2
+FGFR3
+FH
+FLCN
+GATA1
+GATA2
+GBA
+GDNF
+GJB2
+GPC3
+H19
+HACE1
+HFE
+HMBS
+HRAS
+HSD17B12
+IKZF1
+ITK
+KCNQ1OT1
+KIT
+KRAS
+LIN28B
+LMO1
+MAP2K1
+MAP2K2
+MAX
+MEN1
+MET
+MLF1
+MLH1
+MPL
+MSH2
+MSH3
+MSH6
+MTAP
+MUTYH
+NBN
+NEFL
+NF1
+NF2
+NKX2-1
+NRAS
+NSD1
+PALB2
+PAX5
+PDGFRA
+PHOX2B
+PMS2
+POLD1
+POLE
+POLH
+PRKAR1A
+PRSS1
+PTCH1
+PTEN
+PTPN11
+RAD50
+RAD51
+RAD51C
+RAD51D
+RAF1
+RB1
+RECQL4
+RET
+RHBDF2
+RMRP
+RUNX1
+SBDS
+SDHA
+SDHAF2
+SDHB
+SDHC
+SDHD
+SERPINA1
+SH2D1A
+SHOC2
+SLC25A13
+SLX4
+SMAD4
+SMARCA4
+SMARCB1
+SMARCE1
+SOS1
+SOS2
+SOX10
+SRY
+STAT3
+STK11
+SUFU
+TERC
+TERT
+TGFBR1
+TMEM127
+TP53
+TRIM37
+TSC1
+TSC2
+UROD
+VHL
+WAS
+WRN
+WT1
+XPA
+XPC
+XRCC3
+ZEB2

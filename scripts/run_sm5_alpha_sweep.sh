@@ -26,8 +26,6 @@ set -euo pipefail
 
 # --- Paths --------------------------------------------------------------------
 BIFO_GRAPH="/mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo-graph"
-BIFO_RUN_CHD="/mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_chd"
-BIFO_RUN_NBL="/mnt/isilon/taylor_lab/data/projects/BIFO_2026/bifo_run_nbl"
 LOGS_DIR="/mnt/isilon/taylor_lab/data/projects/BIFO_2026/logs/sm5_alpha"
 mkdir -p "$LOGS_DIR"
 
@@ -36,13 +34,12 @@ cd "$BIFO_GRAPH"
 # --- α values to sweep --------------------------------------------------------
 ALPHAS=(0.20 0.35 0.50 0.65 0.80)
 
-# --- Canonical conditioning inputs (raw graph files) -------------------------
-CHD_NODES_EXT="$BIFO_RUN_CHD/kf_chd_nodes_extended.csv"
-CHD_EDGES_ALL="$BIFO_RUN_CHD/kf_chd_edges_all.csv"
-NBL_NODES_EXT="$BIFO_RUN_NBL/kf_nbl_nodes_extended.csv"
-NBL_EDGES_ALL="$BIFO_RUN_NBL/kf_nbl_edges_all.csv"
-
-# --- score_pathways.py inputs (cleaned/conditioned versions) -----------------
+# --- Pipeline inputs ----------------------------------------------------------
+# v0.3.1: Both conditioning and scoring use the cleaned, deduplicated nodes
+# file (nodes_clean_noncc.csv.gz). Earlier versions used kf_*_nodes_extended.csv
+# for conditioning, which contains duplicate node_id rows that triggered a
+# silent dimension mismatch in bifo_conditioning.py outputs. See bifo_conditioning.py
+# v0.3.1 patch notes for full diagnosis.
 CHD_SEED_CUIS="$BIFO_GRAPH/data/cohorts/chd/kf_chd_seed_cuis.txt"
 CHD_REFERENCE="$BIFO_GRAPH/data/cohorts/chd/kf_chd_cilia_reference.txt"
 CHD_NODES_CLEAN="$BIFO_GRAPH/results/kf_chd/nodes_clean_noncc.csv.gz"
@@ -59,9 +56,9 @@ MAPPING="$BIFO_GRAPH/config/bifo_mapping.yaml"
 
 # --- Verify all inputs exist before launching anything -----------------------
 echo "Verifying input files..."
-for f in "$CHD_NODES_EXT" "$CHD_EDGES_ALL" "$CHD_SEED_CUIS" "$CHD_REFERENCE" \
+for f in "$CHD_SEED_CUIS" "$CHD_REFERENCE" \
          "$CHD_NODES_CLEAN" "$CHD_EDGES_RAW" "$CHD_EDGES_MERGED" \
-         "$NBL_NODES_EXT" "$NBL_EDGES_ALL" "$NBL_SEED_CUIS" "$NBL_REFERENCE" \
+         "$NBL_SEED_CUIS" "$NBL_REFERENCE" \
          "$NBL_NODES_CLEAN" "$NBL_EDGES_RAW" "$NBL_EDGES_MERGED" \
          "$MAPPING"; do
     if [ ! -f "$f" ]; then
@@ -78,23 +75,33 @@ run_cohort_at_alpha() {
     local n_cores="$3"
 
     local cohort_upper="$(echo "$cohort" | tr '[:lower:]' '[:upper:]')"
-    local outdir="$BIFO_GRAPH/results/kf_${cohort}/sensitivity/alpha${alpha}"
-    mkdir -p "$outdir"
+    local outdir nodes_cond edges_cond seed_cuis reference
+    local nodes_clean edges_raw edges_merged
+    local disease n_probands n_seeds
 
-    local nodes_ext edges_all seed_cuis reference nodes_clean edges_raw edges_merged disease n_probands n_seeds
-    if [ "$cohort" = "chd" ]; then
-        nodes_ext="$CHD_NODES_EXT"; edges_all="$CHD_EDGES_ALL"
+    if [[ "$cohort" == "chd" ]]; then
+        outdir="$BIFO_GRAPH/results/kf_chd/sensitivity/alpha${alpha}"
+        # NOTE v0.3.1: conditioning uses the cleaned, deduplicated nodes file
+        # (nodes_clean_noncc.csv.gz), not the raw nodes_extended.csv. The
+        # extended file contains duplicate node_id rows that previously caused
+        # silent dimension mismatch between scores_cond.npy and node_index.json.
+        # bifo_conditioning.py v0.3.1+ also defends against this with a dedup
+        # step + assertion, but we pass the clean file here for safety and
+        # parity with the canonical scoring pipeline.
+        nodes_cond="$CHD_NODES_CLEAN"; edges_cond="$CHD_EDGES_RAW"
         seed_cuis="$CHD_SEED_CUIS"; reference="$CHD_REFERENCE"
         nodes_clean="$CHD_NODES_CLEAN"; edges_raw="$CHD_EDGES_RAW"
         edges_merged="$CHD_EDGES_MERGED"
-        disease="congenital heart disease"; n_probands=697; n_seeds=1276
+        disease="congenital_heart_disease"; n_probands=697; n_seeds=1276
     else
-        nodes_ext="$NBL_NODES_EXT"; edges_all="$NBL_EDGES_ALL"
+        outdir="$BIFO_GRAPH/results/kf_nbl/sensitivity/alpha${alpha}"
+        nodes_cond="$NBL_NODES_CLEAN"; edges_cond="$NBL_EDGES_RAW"
         seed_cuis="$NBL_SEED_CUIS"; reference="$NBL_REFERENCE"
         nodes_clean="$NBL_NODES_CLEAN"; edges_raw="$NBL_EDGES_RAW"
         edges_merged="$NBL_EDGES_MERGED"
         disease="neuroblastoma"; n_probands=460; n_seeds=1395
     fi
+    mkdir -p "$outdir"
 
     local log_cond="$LOGS_DIR/${cohort}_alpha${alpha}_conditioning.log"
     local log_score="$LOGS_DIR/${cohort}_alpha${alpha}_scoring.log"
@@ -106,8 +113,8 @@ run_cohort_at_alpha() {
     # ---- 1. bifo_conditioning.py at this α ---
     echo "[1/3] bifo_conditioning.py --alpha $alpha ..."
     python3 "$BIFO_GRAPH/pipeline/bifo_conditioning.py" \
-        --nodes         "$nodes_ext" \
-        --edges         "$edges_all" \
+        --nodes         "$nodes_cond" \
+        --edges         "$edges_cond" \
         --mapping       "$MAPPING" \
         --seed-nodes    "$seed_cuis" \
         --heldout-nodes "$seed_cuis" \

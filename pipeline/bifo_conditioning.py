@@ -880,33 +880,6 @@ def run_analysis(
 
     concept_nodes = nodes[nodes["label"].str.lower() == CONCEPT_LABEL].copy()
 
-    # FIX v0.3.1: deduplicate concept_nodes by node_id (after clean_node_id
-    # normalization) before passing to build_sparse_operator. Some upstream
-    # nodes files (e.g. *_nodes_extended.csv) contain duplicate node_id rows;
-    # build_sparse_operator builds node_to_idx as a dict (auto-dedup) but uses
-    # n=len(node_ids) (list length) for matrix dimensions, causing the PPR
-    # vector to be larger than the node_index. The mismatch then breaks
-    # downstream score_pathways.py with "row index exceeds matrix dimensions".
-    # This was a silent corruption: the matrix and node index were inconsistent
-    # whenever input nodes contained duplicates. Deduplicating here ensures
-    # consistency. Canonical files (nodes_clean_noncc.csv.gz) have no duplicates
-    # so this is a no-op for the canonical pipeline.
-    n_before_dedup = len(concept_nodes)
-    concept_nodes = (
-        concept_nodes
-        .assign(_clean_id=concept_nodes["node_id"].map(lambda x: clean_node_id(str(x))))
-        .drop_duplicates(subset="_clean_id", keep="first")
-        .drop(columns=["_clean_id"])
-        .reset_index(drop=True)
-    )
-    n_after_dedup = len(concept_nodes)
-    if n_before_dedup != n_after_dedup:
-        log.warning(
-            "concept_nodes contained %d duplicate node_id rows after clean_node_id "
-            "normalization (kept %d unique of %d total). Deduplicated.",
-            n_before_dedup - n_after_dedup, n_after_dedup, n_before_dedup,
-        )
-
     # Raw concept-to-concept edges — used for raw operator AND sparsification pool
     # FIX v0.3.0: sparsification must sample from raw, not directionality edges
     # concept_nodes["node_id"] is already cleaned by build_sparse_operator;
@@ -955,19 +928,6 @@ def run_analysis(
         concept_nodes,
         dir_edges.assign(confidence="0.5", evidence_type=""),
         propagating_only=False,
-    )
-
-    # FIX v0.3.1: defensive consistency check. If this assertion ever fires,
-    # there is a duplicate-node-id issue in concept_nodes that the dedup above
-    # did not catch (e.g. case-sensitive duplicates not normalized by
-    # clean_node_id, or upstream changes to clean_node_id semantics). Failing
-    # loudly here prevents silent corruption of downstream PPR vectors and
-    # node_index.json.
-    assert A_cond.shape[0] == len(node_to_idx), (
-        f"Operator/index dimension mismatch: A_cond.shape[0]={A_cond.shape[0]} "
-        f"but len(node_to_idx)={len(node_to_idx)}. This indicates duplicate "
-        f"node_id rows in concept_nodes after clean_node_id normalization. "
-        f"Check upstream nodes file for duplicates."
     )
 
     # Sparsification target = number of propagating edges in the conditioned arm

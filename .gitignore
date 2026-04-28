@@ -27,3 +27,6 @@ results/kf_chd/results_kept_edges.csv
 results/kf_nbl/results_kept_edges.csv
 results/kf_chd/edges_all_noncc.csv
 results/kf_nbl/edges_all_noncc.csv
+
+# Rerun working directories (audit_2026-04-28)
+_rerun_*/

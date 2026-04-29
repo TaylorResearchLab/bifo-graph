@@ -149,38 +149,65 @@ ORDER BY node_id;
 
 
 def make_query5(cohort, gene_list_str, n_genes):
-    return f"""// BIFO {cohort.upper()} Export -- QUERY 5: Pathway membership edges
+    """
+    Pathway membership edges: exports gene->pathway membership for all MSIGDB
+    pathways globally, with no seed restriction. Signal flows from genes to
+    pathways in the BIFO PPR operator, so we export only the inverse-direction
+    predicates (G->PW), which are classified weak_mechanistic_or_observational
+    (propagating) in the BIFO YAML.
+
+    Forward predicates (PW->G: pathway_associated_with_gene, has_signature_gene)
+    are nonpropagating_context per BIFO and would be filtered by conditioning
+    anyway; excluding them at the cypher level avoids exporting edges that will
+    only be dropped.
+
+    Includes both MSIGDB C2.CP/C5/etc. (inverse_pathway_associated_with_gene)
+    and Hallmark (inverse_has_signature_gene) membership predicates.
+
+    Cohort-independent: this query ignores the seed list intentionally.
+
+    Note (audit_2026-04-28): Earlier production Q5 restricted edges to those
+    where both pathway and gene CUIs were in the seed 1-hop reachable set.
+    That hop1 restriction silently pruned member genes whose only graph
+    connection to seeds was the membership edge itself, causing 13 ciliopathy
+    member genes to be dropped from KF-CHD scoring (170 of 183 members) and
+    omitting all 7,321 Hallmark inverse_has_signature_gene edges. The global,
+    no-restriction design produces bit-identical output across cohorts and
+    supports the propagating-direction filter applied by bifo_conditioning.py
+    via the BIFO YAML.
+    """
+    # gene_list_str and n_genes are unused; kept in signature for API
+    # compatibility with the dispatcher in main().
+    _ = gene_list_str, n_genes  # mark as intentionally unused
+    return f"""// BIFO {cohort.upper()} Export -- QUERY 5: Pathway membership edges (global)
 // Save output as: kf_{cohort}_pathway_membership_edges.csv
 // Columns: source, target, predicate
-WITH {gene_list_str} AS gene_names
-MATCH (c:Concept)-[:PREF_TERM]->(t:Term)
-WHERE t.name IN gene_names
-WITH collect(DISTINCT c) AS seed_concepts
-
-UNWIND seed_concepts AS seed
-MATCH (seed)-[r1]-(hop1:Concept)
-WHERE type(r1) <> 'CODE'
-  AND type(r1) <> 'STY'
-  AND type(r1) <> 'ISA'
-  AND type(r1) <> 'PREF_TERM'
-WITH collect(DISTINCT hop1.CUI) AS hop1_ids
-
-MATCH (pw:Concept)-[r]->(gene:Concept)
-WHERE pw.CUI IN hop1_ids
-  AND gene.CUI IN hop1_ids
-  AND type(r) IN [
-    'pathway_associated_with_gene',
-    'has_signature_gene',
-    'inverse_pathway_associated_with_gene',
-    'inverse_has_signature_gene',
-    'process_involves_gene',
-    'gene_plays_role_in_process'
-  ]
+//
+// Exports gene->pathway membership edges only (G->PW direction).
+// Signal flows FROM genes TO pathways in the BIFO PPR operator.
+// Forward direction (PW->G) is nonpropagating_context in the BIFO YAML
+// and would be filtered out by conditioning. Excluded at cypher level
+// for efficiency.
+// Cohort-independent: this query ignores the seed list intentionally.
+// ---------------------------------------------------------------------------
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (gene:Concept)-[:inverse_pathway_associated_with_gene]->(pw)
 RETURN DISTINCT
-    pw.CUI   AS source,
-    gene.CUI AS target,
-    type(r)  AS predicate
-ORDER BY source, predicate, target;
+    gene.CUI AS source,
+    pw.CUI   AS target,
+    'inverse_pathway_associated_with_gene' AS predicate
+UNION
+MATCH (pw:Concept)-[:CODE]->(code:Code)
+WHERE code.SAB = 'MSIGDB'
+WITH pw
+MATCH (gene:Concept)-[:inverse_has_signature_gene]->(pw)
+RETURN DISTINCT
+    gene.CUI AS source,
+    pw.CUI   AS target,
+    'inverse_has_signature_gene' AS predicate
+ORDER BY source, target;
 """
 
 

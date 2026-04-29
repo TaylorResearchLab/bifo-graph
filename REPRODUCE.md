@@ -245,7 +245,7 @@ python3 pipeline/bifo_conditioning.py \
 
 **Frozen outputs:** `results/kf_chd/`
 
-**Expected:** 2,490,510 kept edges (44.1% of concept edges), 1,276/1,276 seeds resolved. Bridge edges: 1,026,968 / 2,482,752 propagating = 41.4%
+**Expected:** 2,022,428 kept edges (39.1% of concept edges from 5,177,718 raw concept edges), 1,276/1,276 seeds resolved. Conditioned propagating edges: 1,435,447. Bridge edges (Pathway Contribution flow class): 526,716 = 36.7% of propagating graph.
 
 ### Step 2.2 — Pathway Scoring (Standard Universe)
 
@@ -265,14 +265,16 @@ python3 pipeline/score_pathways.py \
   --null-type membership-rewiring \
   --n-cores 128 \
   --out-csv  results/kf_chd/pathway_scores_standard.csv \
-  --out-json results/kf_chd/pathway_metrics_standard.json
+  --out-json results/kf_chd/pathway_metrics_standard.json \
+  --out-member-scores results/kf_chd/member_scores_standard.csv \
+  --out-influential-nodes results/kf_chd/influential_nodes_standard.csv
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 43/2,130 (top 2%), degree_norm=8.509e-06; WP_JOUBERT_SYNDROME rank 34 (null degenerate in CHD). Pathway universe: 2,130 (CGP sets excluded via --allowed-name-prefixes).
+**Expected (scoring):** WP_CILIOPATHIES rank 12/2,044, member_gene_count=183 (full MSigDB:M39880 membership). Pathway universe: 2,044 (CGP sets excluded via --allowed-name-prefixes).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=48.71, empirical q=0.0078 (valid — bridge edges 41.4% of propagating graph; see Methods §5)
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=17.888, empirical q=0.010 (well-calibrated; bridge edges 36.7% of propagating graph; see Methods §5)
 
-**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=1.39, empirical p=0.057 (not significant at member level; signal concentrated at pathway node)
+**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=2.07, empirical q=0.192 (signal modestly concentrated within member genes; main signal at pathway node)
 
 > Note: `score_pathways.py` runs both nulls in a single invocation when `--null-type membership-rewiring` is specified. Output columns: `empirical_q`, `null_z` (pathway-node rewiring null); `member_mean_q`, `member_mean_null_z` (member-level null).
 
@@ -316,7 +318,7 @@ python3 pipeline/bifo_conditioning.py \
   --out-json results/kf_nbl/results.json
 ```
 
-**Expected:** 2,654,867 kept edges (45.3% of concept edges), 1,395/1,406 seeds resolved
+**Expected:** 2,074,372 kept edges (41.0% of concept edges from 5,058,058 raw concept edges), 1,395/1,406 seeds resolved. Conditioned propagating edges: 1,487,303. Bridge edges (Pathway Contribution flow class): 533,793 = 35.9% of propagating graph.
 
 ### Step 3.2 — Pathway Scoring
 
@@ -336,14 +338,18 @@ python3 pipeline/score_pathways.py \
   --null-type membership-rewiring \
   --n-cores 128 \
   --out-csv  results/kf_nbl/pathway_scores_standard.csv \
-  --out-json results/kf_nbl/pathway_metrics_standard.json
+  --out-json results/kf_nbl/pathway_metrics_standard.json \
+  --out-member-scores results/kf_nbl/member_scores_standard.csv \
+  --out-influential-nodes results/kf_nbl/influential_nodes_standard.csv
 ```
 
-**Expected (scoring):** WP_CILIOPATHIES rank 3/2,196, degree_norm=4.241e-06, null_z=18.95, q=0.0121; WP_JOUBERT_SYNDROME rank 17. Pathway universe: 2,196 (CGP sets excluded).
+**Expected (scoring):** WP_CILIOPATHIES rank 1/2,111, member_gene_count=183 (full MSigDB:M39880 membership). Pathway universe: 2,111 (CGP sets excluded).
 
-**Expected (pathway-node rewiring null):** WP_CILIOPATHIES null_z=18.95, empirical q=0.0121 (valid)
+**Expected (pathway-node rewiring null):** WP_CILIOPATHIES `null_calibrated=False` (rewiring null degenerate for this pathway in NBL — all 1,000 permutations returned identical scores; signal_to_null_mean=12.6). Use member-level null for inference.
 
-**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=2.43, empirical p=0.003 (significant — signal distributed across member genes in NBL)
+**Expected (member-level null):** WP_CILIOPATHIES member_mean null_z=6.63, empirical q=0.034 (significant — propagated signal concentrates within member genes; this is the reportable significance metric for NBL given rewiring-null degeneracy).
+
+> **Important — dual-null reporting for NBL:** The pathway-node rewiring null is degenerate for WP_CILIOPATHIES in NBL (all permutations return the same score), so `null_z` and `empirical_q` are NaN-coded. The member-level null is well-calibrated and provides the significance metric. Use `--include-degenerate` in `summarize_results.py` to retain rank-1 WP_CILIOPATHIES in the LLM output table.
 
 ### Step 3.3 — Baseline Enrichment
 

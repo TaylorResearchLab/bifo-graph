@@ -220,14 +220,50 @@ python3 pipeline/chd_resampling_exhaustive.py \
 
 ### Data requirements
 
-KF-CHD graph data files (`edges_all_noncc.csv.gz`, `nodes_clean_noncc.csv.gz`) are archived in `results/kf_chd/`. Seed CUIs are in `data/cohorts/chd/kf_chd_seed_cuis.txt` (1,276 CUIs; 1,276/1,287 resolved).
+KF-CHD analysis requires either: (a) the pre-shipped graph data files (`edges_all_noncc.csv.gz`, `nodes_clean_noncc.csv.gz` archived in `results/kf_chd/`, sufficient for reproducing scoring and downstream results), or (b) Neo4j DDKG access to regenerate the export from scratch.
+
+Seed file: `data/cohorts/chd/kf_chd_seed_cuis.txt` (1,276 CUIs; derived from `data/cohorts/chd/kf_chd_seeds_maf001.txt`, 1,276/1,287 resolved to graph CUIs).
+
+### Step 2.0 — Neo4j Export (requires DDKG access; skip if using pre-shipped data)
+
+Generate the per-query cypher files from the gene-symbol seed list, then execute them against a Neo4j DDKG instance via cypher-shell. The wrapper script handles cypher generation, query execution, output cleaning, and merging in a single command.
 
 ```bash
-# Already exists: kf_chd_edges_merged.csv
-# Produced by merging kf_chd_edges_raw_clean.csv + kf_chd_pathway_membership_edges_clean.csv
+# Option A: One-shot via wrapper (generates cypher + runs cypher-shell + cleans + merges)
+bash scripts/run_kf_chd_export.sh neo4j PASSWORD bolt://localhost:7687
+
+# Option B: Manual two-step (useful for inspection or debugging)
+# Step 2.0a: Generate cypher
+python3 pipeline/generate_export_cypher.py \
+  --seeds   data/cohorts/chd/kf_chd_seeds_maf001.txt \
+  --cohort  chd \
+  --out-dir cypher/
+
+# Output: cypher/kf_chd_query{2,3,4,5,6}.cypher
+#   query2 → seed_nodes.csv      (1,276 seed concept nodes)
+#   query3 → edges_raw.csv       (~5.18M 1-hop edges)
+#   query4 → nodes.csv           (~836K seed + 1-hop neighbor nodes)
+#   query5 → pathway_membership_edges.csv  (493,963 edges; cohort-independent global MSigDB membership)
+#   query6 → pathway_member_nodes.csv      (gene-metadata for MSigDB pathway members)
+
+# Step 2.0b: Execute via cypher-shell (one command per query file)
+for q in 2 3 4 5 6; do
+  cypher-shell -u neo4j -p PASSWORD -a bolt://localhost:7687 \
+    < cypher/kf_chd_query${q}.cypher \
+    > kf_chd_query${q}_output.csv
+done
+
+# Step 2.0c: Clean and merge cypher-shell outputs into the conditioning input format
+bash scripts/clean_files.sh chd
+bash scripts/merge_files.sh chd
+
+# Outputs (after clean+merge): kf_chd_edges_merged.csv (raw + membership combined),
+# kf_chd_nodes_clean.csv (deduplicated by SAB priority).
 ```
 
-Seed file: `kf_chd_seed_cuis.txt` (1,276 CUIs; derived from `data/cohorts/chd/kf_chd_seeds_maf001.txt`, 1,276/1,287 resolved to graph CUIs)
+**Note on Q5 cohort independence:** Query 5 (MSigDB pathway membership) ignores the seed list intentionally — it queries the full global MSigDB gene-pathway membership. Its output is bit-identical between KF-CHD and KF-NBL (both produce `pathway_membership_edges.csv` with the same 493,963 rows, md5 `e58f26c5...`). Cohort-specificity is established at the conditioning step where this global membership is intersected with the seed-reachable subgraph. See `docs/METHODS_AUDIT.md` for the full rationale.
+
+**Expected outputs after Step 2.0:** `kf_chd_seed_nodes.csv` (1,277 lines), `kf_chd_edges_raw.csv` (5,261,300 lines), `kf_chd_nodes.csv` (1,079,543 lines), `kf_chd_pathway_membership_edges.csv` (493,963 lines), `kf_chd_pathway_member_nodes.csv` (21,353 lines). The merged edge file is then used as input to conditioning in Step 2.1.
 
 ### Step 2.1 — Conditioning and Propagation
 
@@ -302,7 +338,33 @@ python3 pipeline/baseline_enrichment.py \
 
 Independent neuroblastoma cohort (460 probands, dbGaP phs001436). Same pipeline as KF-CHD. Seed CUIs: `data/cohorts/nbl/kf_nbl_seed_cuis.txt` (1,395 CUIs; 1,395/1,406 resolved). Frozen outputs in `results/kf_nbl/`.
 
-Seed file: `kf_nbl_seed_cuis.txt` (1,395 CUIs; NBL rare variant carriers at MAF ≤ 0.001)
+Seed file: `kf_nbl_seed_cuis.txt` (1,395 CUIs; NBL rare variant carriers at MAF ≤ 0.001).
+
+### Step 3.0 — Neo4j Export (requires DDKG access; skip if using pre-shipped data)
+
+Same procedure as KF-CHD Step 2.0, with NBL seed list and cohort name. Query 5 (MSigDB pathway membership) and Query 6 (pathway member nodes) produce bit-identical output to KF-CHD because both queries are cohort-independent.
+
+```bash
+# Option A: One-shot via wrapper
+bash scripts/run_kf_nbl_export.sh neo4j PASSWORD bolt://localhost:7687
+
+# Option B: Manual two-step
+python3 pipeline/generate_export_cypher.py \
+  --seeds   data/cohorts/nbl/kf_nbl_seeds_maf001.txt \
+  --cohort  nbl \
+  --out-dir cypher/
+
+for q in 2 3 4 5 6; do
+  cypher-shell -u neo4j -p PASSWORD -a bolt://localhost:7687 \
+    < cypher/kf_nbl_query${q}.cypher \
+    > kf_nbl_query${q}_output.csv
+done
+
+bash scripts/clean_files.sh nbl
+bash scripts/merge_files.sh nbl
+```
+
+**Expected outputs after Step 3.0:** `kf_nbl_seed_nodes.csv` (1,396 lines), `kf_nbl_edges_raw.csv` (5,520,176 lines), `kf_nbl_nodes.csv` (1,169,818 lines), `kf_nbl_pathway_membership_edges.csv` (493,964 lines, identical content to CHD Q5 modulo trailing newline), `kf_nbl_pathway_member_nodes.csv` (21,354 lines, identical to CHD Q6).
 
 ### Step 3.1 — Conditioning and Propagation
 

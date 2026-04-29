@@ -593,7 +593,7 @@ def _build_operator_from_edges(
     Uses only propagating=True edges (same as bifo_conditioning.py).
     Uniform edge weights — matching all reported analyses.
     """
-    n = len(node_to_idx)
+    n = max(node_to_idx.values()) + 1  # account for sparse node_to_idx after conditioning dedupe
     work = conditioned_edges.copy()
 
     if 'propagating' in work.columns:
@@ -1114,7 +1114,7 @@ def run_membership_rewiring_null(
         return np.zeros((len(pathway_ids), n_permutations), dtype=float)
 
     n_swaps = len(bridge_src) * n_swaps_multiplier
-    n = len(node_to_idx)
+    n = max(node_to_idx.values()) + 1  # account for sparse node_to_idx after conditioning dedupe
     log.info("Rewiring null: %d bridge edges, %d swaps/perm, %d perms",
              len(bridge_src), n_swaps, n_permutations)
 

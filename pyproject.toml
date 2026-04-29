@@ -1,0 +1,45 @@
+# pyproject.toml — bifo-graph project metadata and tool configuration.
+# Companion to requirements.txt (runtime) and requirements-dev.txt (test).
+
+[build-system]
+# Not used for distribution today (the repo isn't a published pip package),
+# but keeping a valid PEP 517 build-system section makes pyproject.toml
+# parseable by all standard tooling.
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bifo-graph"
+version = "0.1.0"
+description = "BIFO conditioning + PPR pathway scoring on biomedical knowledge graphs"
+requires-python = ">=3.11,<3.12"
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+
+# Marker registry. Tests with non-trivial cost or external dependencies are
+# marked so they're skipped by default. Use --strict-markers below to fail
+# loudly on typos.
+markers = [
+    "slow: tests that take >5s of wall time (typically full-pipeline runs)",
+    "requires_kg: tests that need a live knowledge-graph backend connection",
+]
+
+# Default invocation skips slow + requires_kg tests. To run more:
+#   pytest -m slow              # slow tests only
+#   pytest -m requires_kg       # KG-dependent tests only
+#   pytest -m ""                # everything (no marker filter)
+addopts = [
+    "-m not slow and not requires_kg",
+    "--strict-markers",
+    "-ra",
+]
+
+[tool.coverage.run]
+source = ["pipeline"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

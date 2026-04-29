@@ -6,42 +6,67 @@ This audit is intended to be transparent for reviewers: every numerical claim in
 
 ---
 
-## Bug 1 — Q5 cypher predicate direction
+## Bug 1 — Q5 cypher hop1-restriction excluded propagating membership edges
 
 ### Symptom
 
 The KF-CHD canonical results file (`results/kf_chd/pathway_scores_standard.csv` at git HEAD on April 27) reported WP_CILIOPATHIES with **170 member genes**. The MSIGDB definition of WP_CILIOPATHIES has **183 member genes**. The 13 missing genes were dropped during the BIFO conditioning step.
 
+The KF-NBL canonical results similarly reported WP_CILIOPATHIES with 169 members (off by 14 from the full 183). And both cohorts' canonical results were missing all Hallmark pathway membership content (`inverse_has_signature_gene` predicate, 7,321 edges).
+
 ### Root cause
 
-The Q5 cypher in the production cypher-export script (`cypher/kf_chd_export_queries.cypher`) at HEAD used predicate `pathway_associated_with_gene`. This predicate has direction `PW→G` in the DDKG. The BIFO YAML (`config/bifo_mapping.yaml` v0.7.1) classifies `pathway_associated_with_gene` as flow class `nonpropagating_context` — correct, because gene-to-pathway membership feedback amplifies pathway signal in PPR loops.
+The Q5 cypher in the production cypher-export script (`cypher/kf_chd_export_queries.cypher`, also in NBL equivalent) at HEAD restricted gene-pathway membership edges to those where **both** the pathway and gene CUIs were in the seed-1-hop reachable subgraph:
 
-Conditioning correctly drops nonpropagating edges. The 13 ciliopathy member genes had no mechanistic 1-hop connection to any of the 1,276 CHD seeds. Their only edge to the rest of the graph was the now-dropped `pathway_associated_with_gene` membership edge to MSIGDB:M39880 (WP_CILIOPATHIES). With that edge dropped, those 13 genes became isolated nodes and were pruned during conditioning.
+```cypher
+MATCH (pw:Concept)-[r]->(gene:Concept)
+WHERE pw.CUI IN hop1_ids
+  AND gene.CUI IN hop1_ids
+  AND type(r) IN [
+    'pathway_associated_with_gene',
+    'has_signature_gene',
+    'inverse_pathway_associated_with_gene',
+    'inverse_has_signature_gene',
+    'process_involves_gene',
+    'gene_plays_role_in_process'
+  ]
+```
 
-The corrected Q5 design uses `inverse_pathway_associated_with_gene` (G→PW direction) plus `inverse_has_signature_gene` (G→PW direction, for Hallmark pathways). Both inverse predicates are classified `weak_mechanistic_or_observational` in the BIFO YAML — propagating. With propagating membership edges, the 13 disconnected genes have a surviving edge to WP_CILIOPATHIES, survive conditioning, and contribute to scoring.
+This `hop1_ids` restriction had two compounding effects:
+
+1. **13 ciliopathy member genes were silently pruned.** These genes had no mechanistic 1-hop connection to any of the 1,276 KF-CHD seeds. Their only graph connection to seeds was the membership edge to WP_CILIOPATHIES itself. Because they were not in `hop1_ids`, the gene-side filter excluded them; their membership edges never made it into the export. Conditioning subsequently saw WP_CILIOPATHIES with 170 members instead of 183.
+2. **All 7,321 Hallmark gene-pathway membership edges (`inverse_has_signature_gene`) were excluded.** Hallmark pathway nodes connect to their member genes only via this predicate. Most Hallmark member genes weren't in the seed 1-hop neighborhood, so the hop1-restriction dropped most Hallmark membership edges; conditioning then saw Hallmark pathways as severely under-populated.
+
+The corrected Q5 design exports the **full global MSigDB gene-pathway membership** with no seed restriction. It uses only the inverse-direction predicates (G→PW), which are classified `weak_mechanistic_or_observational` in the BIFO YAML (propagating). The forward predicates (PW→G: `pathway_associated_with_gene`, `has_signature_gene`) are excluded at the cypher level because BIFO classifies them as `nonpropagating_context` and conditioning would drop them anyway. Cohort-specificity is established at the conditioning step where the global membership graph is intersected with the seed-reachable subgraph.
+
+The corrected Q5 is cohort-independent: it produces bit-identical output for KF-CHD and KF-NBL (both export the same global MSigDB membership). This is now visible at the file level: the regenerated `cypher/kf_chd_query5.cypher` and `cypher/kf_nbl_query5.cypher` are 1,137 bytes each and differ only in the cohort name in the comment header.
 
 ### Git regression timeline
 
 | Date (2026) | Commit | Status |
 |---|---|---|
-| Apr 16 | (initial) | Q5 used `pathway_associated_with_gene` (PW→G, nonpropagating) — bug |
+| Apr 16 | (initial) | Q5 used hop1-restriction with mixed predicate list — bug |
 | Apr 21 ~9am | `deaeb14` | Q5 fix v1 |
-| Apr 21 22:04 | `65ab3ca` | Q5 fix v2: two-branch UNION with `inverse_pathway_associated_with_gene` + `inverse_has_signature_gene` (G→PW, propagating). Canonical-corrected. |
-| Apr 25 23:32 | `5d01d32` | Regression: regenerated cypher from auto-generator, which had never received the `65ab3ca` correction. Q5 reverted to pre-fix design. |
+| Apr 21 22:04 | `65ab3ca` | Q5 fix v2: two-branch UNION with `inverse_pathway_associated_with_gene` + `inverse_has_signature_gene` (G→PW, propagating, no hop1 restriction). Canonical-corrected. |
+| Apr 25 23:32 | `5d01d32` | Regression: regenerated cypher from `pipeline/generate_export_cypher.py`, which had never received the `65ab3ca` correction. Q5 reverted to pre-fix design with hop1-restriction. |
 | Apr 28 ~07:30 | `be2f9c9` | Added Q6 to auto-generator (separate fix) |
-| Apr 28 evening | (this audit) | Q5 cypher restored from `65ab3ca` for both KF-CHD and KF-NBL exports |
+| Apr 28-29 | (this audit) | Audit run executed Q5 manually using `65ab3ca`-style cypher in `bifo_run_2026-04-28/{chd,nbl}/cypher/`. Generator NOT yet patched. |
+| Apr 29 | `b3358fd` | Recovery commit: patched `make_query5()` in `pipeline/generate_export_cypher.py` to emit global cohort-independent Q5; removed monolithic per-cohort cypher files; added freshly-generated per-query files for both cohorts. |
 
 ### Validation
 
 Re-running Q5 against the production DDKG with the corrected cypher produced 493,963 rows (vs 486,642 buggy). The breakdown:
+
 - 486,642 `inverse_pathway_associated_with_gene` edges (G→PW for non-Hallmark MSigDB)
 - 7,321 `inverse_has_signature_gene` edges (G→PW for Hallmark) — entirely missing from the buggy run
 
 WP_CILIOPATHIES (MSIGDB:M39880) appears with 183 source CUIs in the corrected Q5 output. All 13 previously-disconnected member genes are present. Cross-reference invariants pass: every Q5 source CUI has a row in Q6 (gene-metadata query).
 
+The patched `pipeline/generate_export_cypher.py` was verified to reproduce the audit-run Q5 byte-for-byte (modulo trivial trailing-whitespace differences). Per-query files generated by `python pipeline/generate_export_cypher.py --seeds <file> --cohort <chd|nbl> --out-dir cypher/` are now the canonical cypher source for the pipeline; the obsolete monolithic `kf_chd_export_queries.cypher` and `kf_nbl_export_queries.cypher` files have been removed from the repo.
+
 ### Why NBL also affected
 
-NBL Q5 produced bit-identical output to CHD Q5 (md5 `e58f26c5...`) because the corrected Q5 design is cohort-independent — it queries the global MSigDB pathway membership, not seed-restricted. Both cohorts had the bug. NBL's manuscript-canonical WP_CILIOPATHIES member count was 169 (one different from CHD's 170 due to a single-rank-tie ordering edge case).
+NBL Q5 produced bit-identical output to CHD Q5 (md5 `e58f26c5...`) once corrected, because the corrected Q5 design is cohort-independent — it queries the global MSigDB pathway membership, not the seed-restricted subgraph. Under the buggy hop1-restricted design, both cohorts had the bug; NBL's manuscript-canonical WP_CILIOPATHIES member count was 169 (one different from CHD's 170 due to a single-rank-tie ordering edge case in the buggy filter).
 
 ---
 
@@ -281,19 +306,23 @@ This avoids the appearance of cherry-picking nulls and accurately conveys the as
 
 ---
 
-## Recovery commits (planned)
+## Recovery commits
 
-After authoritative numbers are validated, the following commits will land on `bifo-graph` `main`:
+The following five commits have landed on `bifo-graph` `main` (origin: `github.com:TaylorResearchLab/bifo-graph.git`) as of April 29, 2026:
 
-1. `fix(scoring): correct sparse node_to_idx handling in rewiring null` — `score_pathways.py`: change `n = len(node_to_idx)` to `n = max(node_to_idx.values()) + 1` (2 occurrences). Backwards-compatible; preserves canonical conditioning artifacts.
-2. `fix(cypher): correct Q5 predicate direction for KF cohort exports` — restore `65ab3ca`-style cypher with `inverse_pathway_associated_with_gene` and `inverse_has_signature_gene`. Add code-comment block explaining the predicate-direction requirement.
-3. `fix(generate_export_cypher): emit clean seed tokens or use parameterized cypher` — eliminate the decorated seed-token format that required the sed-fix workaround. Either emit `"SYMBOL gene"` directly, or refactor cypher to take seed list as a `--param`.
-4. `data: add WP_JOUBERT_SYNDROME (MSIGDB:M39835) to kf_chd_cilia_reference.txt` — Joubert syndrome is a classic ciliopathy phenotype (molar tooth sign, polydactyly, retinal/renal cilia involvement). Reference cluster expanded from 16 to 17 pathways during this audit.
-5. `results: regenerate KF-CHD and KF-NBL outputs against corrected pipeline` — replace `results/kf_chd/*.csv`, `results/kf_nbl/*.csv` with `bifo_run_2026-04-28/{chd,nbl}/results/` outputs. Update REPRODUCE.md with new expected md5s and authoritative pathway scores.
-6. `figures: regenerate fig9_rank_vs_nullz against corrected scores` — re-render Figure 8 (manuscript) from corrected `pathway_scores_standard.csv` files.
-7. `docs: add METHODS_AUDIT.md` — this audit document.
+1. `d0dada7` **fix(scoring): correct sparse node_to_idx handling in null matrix sizing** — `pipeline/score_pathways.py`: change `n = len(node_to_idx)` to `n = max(node_to_idx.values()) + 1` at lines 596 and 1117. Backwards-compatible; preserves canonical conditioning artifacts (`results_scores_*.npy` byte-identical).
+2. `c73318d` **data: add WP_JOUBERT_SYNDROME (MSIGDB:M39835) to cilia reference** — `data/cohorts/chd/kf_chd_cilia_reference.txt`: appended Joubert syndrome (classic ciliopathy phenotype). Reference cluster expanded from 16 to 17 pathways.
+3. `349d2d8` **docs: add METHODS_AUDIT.md documenting Apr 28-29 pipeline recovery** — this audit document, located at `docs/METHODS_AUDIT.md`.
+4. `b3358fd` **fix(cypher): correct Q5 to global cohort-independent MSigDB membership** — patches `make_query5()` in `pipeline/generate_export_cypher.py`; removes obsolete monolithic per-cohort cypher files (`kf_chd_export_queries.cypher`, `kf_nbl_export_queries.cypher`); adds freshly-generated per-query cypher files (`kf_{chd,nbl}_query{2,3,4,5,6}.cypher`). Q5 file size is identical (1,137 bytes) between cohorts, making cohort-independence visible at the file-listing level. `scripts/run_kf_{chd,nbl}_export.sh` already expected per-query files.
+5. `5cfd951` **docs: update cypher pipeline references to per-query layout** — `README.md` and `scripts/run_kf_chd_export.sh` text updates referencing per-query layout instead of monolithic cypher files.
 
-The manuscript is updated in a parallel commit campaign on the `bifo-paper-1` repo: abstract null_z values, Results section rankings, supplementary tables ST3/ST4, figure references that display null_z directly.
+### Pending follow-up
+
+These remain to be done in subsequent commits:
+
+- **Results regeneration with full output flags.** Re-run `score_pathways.py` with `--out-member-scores` and `--out-influential-nodes` flags so the canonical results include driver-gene annotations alongside `pathway_scores_standard.csv`/`pathway_metrics_standard.json`. Expected commit: `results: regenerate KF-CHD and KF-NBL outputs against corrected pipeline` (replaces `results/kf_chd/*.csv`, `results/kf_nbl/*.csv`; updates REPRODUCE.md with new md5s).
+- **Figure regeneration.** `figures: regenerate fig9_rank_vs_nullz against corrected scores` — re-render Figure 8 (manuscript) from corrected `pathway_scores_standard.csv`.
+- **Manuscript text updates** (parallel commit campaign on `bifo-paper-1` repo): abstract null_z values, Results section rankings, methods limitations subsection (GO/MSigDB membership-ratio asymmetry, P/LP-curated seed composition), Discussion reframing for the asymmetric NBL/CHD result.
 
 ---
 
@@ -303,7 +332,7 @@ This audit revealed several classes of preventable bug. Process rules added to t
 
 1. **Validate output non-empty + correct header before trusting cypher-shell exit code.** Cypher-shell exits 0 on empty results. Always check `wc -l` and `head -1` before considering a query successful.
 2. **Check BIFO YAML predicate classifications when conditioning drops things you don't expect.** The Q5 bug hid for several days because conditioning correctly dropped nonpropagating edges; the symptom (170 members instead of 183) was visible only at scoring time, not at conditioning time. Always check the YAML if conditioning is dropping more than expected.
-3. **Don't trust auto-generators without inspection.** The `pipeline/generate_export_cypher.py` had two issues (decorated seed tokens that matched no DDKG terms, and a hop1-restricted Q5 hybrid that was wrong). Auto-generators in this repo should either be removed and replaced with parameterized templates, or re-inspected at every regeneration.
+3. **Don't trust auto-generators without inspection — and patch them rather than working around them.** The `pipeline/generate_export_cypher.py` had a buggy `make_query5()` that emitted a hop1-restricted query with mixed forward/inverse predicates. Earlier work (`65ab3ca`, April 21) had hand-edited the static cypher files but not the generator, so a subsequent regeneration (`5d01d32`, April 25) silently re-introduced the bug. The recovery commit (`b3358fd`, April 29) patched `make_query5()` directly so the generator now emits the corrected global cohort-independent Q5; this also eliminated the duplicated monolithic cypher files in favor of per-query files matching the layout `scripts/run_kf_*_export.sh` already expected.
 4. **Cross-host process monitoring requires checking PIDs locally + logs cross-host.** A `kill -0 PID` on a host where the process doesn't live always returns "not running", giving a false "DONE" status. Monitor scripts must determine which host they're on and use the right check.
 5. **When fixing a bug, check whether the same bug was diagnosed and reverted previously.** The sparse-n bug had been correctly diagnosed in commit `d3b5c7a` (April 27) and reverted ten hours later. Searching the git log for prior diagnoses of the same symptom would have saved time.
 6. **Not all reverts are intentional.** Three reverts on April 27 (`6af4392`, `bbacd26`, `4f6d3d2`) appear to have been a single cleanup pass that rolled back an SM5 work-stream; the conditioning-dedup fix was caught up in this rollback as collateral. Review revert PRs/commits carefully to ensure each individual revert is intended.
@@ -350,6 +379,6 @@ Resolution: re-run scoring with the additional output flags (this regenerates by
 
 ## Acknowledgment of scope
 
-This audit corrects the substrate (Q5) and scoring (n) bugs in the BIFO-PPR pipeline as applied to KF-CHD and KF-NBL cohort data with `--perm-random-seed 42`. The pipeline architecture, the BIFO ontology, the conditioning algorithm, and the membership-rewiring null model are unchanged. The methodology described in the manuscript is correct as designed; the bugs were in the cypher predicate direction and a single integer assignment in the scoring code. Recovery is mechanical and fully deterministic.
+This audit corrects the substrate (Q5) and scoring (n) bugs in the BIFO-PPR pipeline as applied to KF-CHD and KF-NBL cohort data with `--perm-random-seed 42`. The pipeline architecture, the BIFO ontology, the conditioning algorithm, and the membership-rewiring null model are unchanged. The methodology described in the manuscript is correct as designed; the bugs were in the cypher hop1-restriction filter on Q5 (excluding propagating membership edges that should have been retained) and a single integer assignment in the scoring code (matrix dimension calculation that didn't account for sparse `node_to_idx` from the conditioning step). Recovery is mechanical and fully deterministic.
 
 The cohort-similarity / curation-bias finding documented separately in `audit_2026-04-28/docs/audit_findings.md` and the U24 memo is independent of these substrate bugs and remains valid: it concerns the AutoGVP P/LP filter producing seed sets with shared ClinVar curation density across cohort-disjoint phenotypes. That finding is the basis for Paper 3 (curation-bias correction methodology) and is unrelated to the bugs corrected here. The corrected results in this audit, if anything, strengthen the cohort-similarity finding by showing the cilia signal at consistent strength across both cohorts.

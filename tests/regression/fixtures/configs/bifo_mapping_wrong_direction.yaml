@@ -1,0 +1,13 @@
+# Fixture: bifo_mapping that defines the predicate referenced by
+# pipeline_config_minimal.yaml but with direction=target_to_source.
+# Cross-validation should fail because propagating_predicates_g_to_pw
+# requires direction=source_to_target.
+
+version: 0.0.0-fixture
+
+edge_resolution:
+  predicate_to_flow:
+
+    inverse_pathway_associated_with_gene:
+      direction: target_to_source  # invalid for a g_to_pw predicate
+      classification: weak_mechanistic_or_observational

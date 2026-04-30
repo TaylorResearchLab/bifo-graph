@@ -1,0 +1,11 @@
+# Fixture: bifo_mapping that has top-level keys but is missing the
+# edge_resolution section entirely. The loader should raise a clear
+# structural error pointing at the missing key, not produce
+# misleading "predicate not found" cascade errors.
+
+version: 0.0.0-fixture
+
+# Note: edge_resolution section is intentionally absent.
+
+other_section:
+  some_field: value

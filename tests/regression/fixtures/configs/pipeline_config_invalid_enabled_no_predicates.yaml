@@ -1,0 +1,17 @@
+# Fixture: pipeline_config with a source enabled but no predicates listed.
+# The cross-field validator should reject this — an enabled source must
+# declare at least one propagating predicate.
+
+schema_version: 1
+
+pathway_sources:
+  MSIGDB:
+    enabled: true
+    propagating_predicates_g_to_pw: []  # invalid: enabled sources must have predicates
+    kg_name_prefixes:
+      - HALLMARK_
+
+gene_sabs:
+  - HGNC
+
+burden_control_exclusions: []

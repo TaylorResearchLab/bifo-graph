@@ -1,0 +1,16 @@
+# Fixture: bifo_mapping with TWO different problems for the predicates
+# pipeline_config_two_predicates.yaml references. Cross-validation should
+# raise once, with both errors listed in the message.
+
+version: 0.0.0-fixture
+
+edge_resolution:
+  predicate_to_flow:
+
+    inverse_pathway_associated_with_gene:
+      direction: source_to_target
+      classification: nonpropagating_context  # error #1: nonpropagating
+
+    inverse_has_signature_gene:
+      direction: target_to_source             # error #2: wrong direction
+      classification: weak_mechanistic_or_observational

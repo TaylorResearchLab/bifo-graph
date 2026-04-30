@@ -1,0 +1,15 @@
+# Fixture: bifo_mapping that does NOT define the predicate
+# `inverse_pathway_associated_with_gene` referenced by pipeline_config_minimal.yaml.
+# Cross-validation should fail with a "predicate not found" error.
+
+version: 0.0.0-fixture
+
+edge_resolution:
+  predicate_to_flow:
+
+    # Note: inverse_pathway_associated_with_gene is intentionally missing.
+    # Only an unrelated predicate is defined.
+
+    some_unrelated_predicate:
+      direction: source_to_target
+      classification: mechanistic

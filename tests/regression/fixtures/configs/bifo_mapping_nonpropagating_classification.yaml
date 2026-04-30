@@ -1,0 +1,12 @@
+# Fixture: bifo_mapping that classifies the referenced predicate as
+# nonpropagating_context. Cross-validation should fail because
+# nonpropagating predicates can't function as membership predicates.
+
+version: 0.0.0-fixture
+
+edge_resolution:
+  predicate_to_flow:
+
+    inverse_pathway_associated_with_gene:
+      direction: source_to_target
+      classification: nonpropagating_context  # invalid for membership use

@@ -1,0 +1,6 @@
+# Fixture: file is valid YAML but the top level is a list, not a mapping.
+# The loader should raise a clear "not a mapping" error.
+
+- this is a list
+- not a mapping
+- the loader should reject this

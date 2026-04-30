@@ -1,0 +1,145 @@
+# pipeline_config.yaml
+#
+# bifo-graph pipeline policy configuration.
+#
+# This file is a deployment-specific policy file. It controls:
+#   - which pathway sources are active in the pipeline
+#   - which gene SAB(s) the pipeline treats as gene Concepts
+#   - any seed-list filtering applied before CUI resolution
+#
+# This file is the COMPANION to bifo_mapping_ddkg.yaml. Roles:
+#   - bifo_mapping_ddkg.yaml describes WHAT IS in the knowledge graph
+#     (predicate inventory, semantic classifications, flow categories).
+#     This file is the KG-specific instance, with one parallel file per
+#     KG (DDKG, others as needed). It is reference data, not policy.
+#   - pipeline_config.yaml (THIS FILE) describes WHAT THE PIPELINE DOES
+#     with the KG (which sources to use, which prefixes to retain,
+#     which seed genes to exclude). It is policy.
+#
+# Cross-validation: at load time, every predicate listed under an enabled
+# source's `propagating_predicates_g_to_pw` is checked against
+# bifo_mapping_ddkg.yaml. The check enforces three invariants:
+#   1. The predicate is defined in bifo_mapping_ddkg.yaml.
+#   2. Its direction is `source_to_target` (gene -> pathway).
+#   3. Its classification is propagating (not `nonpropagating_context`).
+# A loud error is raised on any inconsistency.
+#
+# IMPORTANT: ALL NAMES IN THIS FILE ARE KG-BUILD-SPECIFIC.
+#   - SAB names ("MSIGDB", "GO") follow the KG's SAB conventions.
+#     For DDKG/UBKG, these match UMLS abbreviation conventions.
+#   - Predicate names ("inverse_pathway_associated_with_gene", etc.) are
+#     edge-relationship type names from the KG, not Relations Ontology IRIs.
+#   - kg_name_prefixes use the KG's pathway-naming conventions
+#     (e.g. "WP_" for WikiPathways in DDKG).
+#
+# To adapt this config to a different KG, edit this file alongside the
+# corresponding bifo_mapping_<kg>.yaml. No automatic translation is
+# performed.
+
+schema_version: 1
+
+# -----------------------------------------------------------------------
+# Pathway source registry
+# -----------------------------------------------------------------------
+# Each top-level key under `pathway_sources` is a SAB name from the KG.
+# The body of each stanza tells the pipeline:
+#   enabled                         -- whether to use this source
+#   propagating_predicates_g_to_pw  -- KG predicate names for gene -> pw
+#   kg_name_prefixes                -- pathway-name filter (empty = all)
+#
+# An enabled source MUST list at least one propagating predicate.
+# Sources with `enabled: false` are inert; their other fields are
+# preserved for documentation but ignored by the pipeline.
+
+pathway_sources:
+
+  MSIGDB:
+    enabled: true
+    propagating_predicates_g_to_pw:
+      # Both classified `weak_mechanistic_or_observational` in
+      # bifo_mapping_ddkg.yaml.
+      - inverse_pathway_associated_with_gene
+      - inverse_has_signature_gene
+    kg_name_prefixes:
+      - HALLMARK_
+      - REACTOME_
+      - WP_
+      - KEGG_
+      - BIOCARTA_
+      - PID_
+
+  GO:
+    # Gene Ontology biological-process membership.
+    # Disabled by default. Rationale: DDKG/UBKG ingestion of GO is sparse;
+    # only ~289 GO terms have direct gene-membership edges as of 2026-04.
+    # Enabling this source adds those memberships to Q5 and to the scoring
+    # universe; expect GO terms to drop substantially in rank as their
+    # true universe size is much larger than the seed-overlap count.
+    #
+    # GO edge provenance: original source is UMLS, ingested via UBKG into
+    # DDKG. Two membership-predicate flavors are listed because GO is
+    # mapped to both gene Concepts (HGNC) and gene-product Concepts (PR,
+    # UniProt). Including both gives full coverage when enabled.
+    enabled: false
+    propagating_predicates_g_to_pw:
+      - gene_plays_role_in_process
+      - gene_product_plays_role_in_biological_process
+    kg_name_prefixes: []  # GO terms don't carry these prefixes
+
+# -----------------------------------------------------------------------
+# Gene SABs
+# -----------------------------------------------------------------------
+# Genes are resolved to pathway membership only when their SAB is in
+# this list. HGNC is the canonical human gene SAB in DDKG/UBKG. Other
+# graph builds may use different conventions (GENCODE, ENSEMBL, etc.).
+
+gene_sabs:
+  - HGNC
+
+# -----------------------------------------------------------------------
+# Burden-control exclusion list
+# -----------------------------------------------------------------------
+# Genes commonly excluded from rare-variant burden tests due to broad
+# curation, polymorphism tolerance, or known false-positive recurrence
+# in P/LP variant calls.
+#
+# Apply this list AFTER seed gene-symbol construction, BEFORE CUI
+# resolution. The pipeline's apply_burden_exclusions step reads this
+# field; if empty, no exclusion is applied.
+#
+# Default: empty (no exclusion).
+#
+# Background reading on the rationale for excluding broad-curation genes
+# from rare-variant burden tests:
+#   - Karczewski et al. 2020, Nature 581:434 (PMID 32461654)
+#   - Lek et al. 2016, Nature 536:285 (PMID 27535533)
+#   - Cassa et al. 2017, Nat Genet 49:806 (PMID 28628604)
+#   - Whiffin et al. 2017, Genet Med 19:1151 (PMID 28492532)
+#
+# Below is the 20-gene exclusion list applied during the April 2026
+# KF-CHD audit-benchmark run. Uncomment and remove the leading hash to
+# apply.
+
+burden_control_exclusions: []
+
+# burden_control_exclusions:
+#   - ABCA4    # vision/retinal: high gnomAD MAF tail
+#   - BCHE     # cholinesterase: high carrier rate
+#   - CD36     # platelet glycoprotein: population-specific MAF
+#   - COL4A5   # X-linked, hemizygous males inflate counts
+#   - FLG      # filaggrin: skin-barrier polymorphism
+#   - G6PD     # glucose-6-phosphate dehydrogenase: population-specific
+#   - GJB2     # connexin 26: high carrier rate (hearing loss)
+#   - KRT71    # keratin: high curation noise
+#   - KRT86    # keratin: high curation noise
+#   - MYO15A   # multi-allelic, hearing loss
+#   - MYO1A    # broad curation
+#   - MYO3A    # broad curation
+#   - MYO7A    # multi-allelic, Usher syndrome
+#   - OBSCN    # large gene: variant accumulation
+#   - PADI3    # broad curation
+#   - PAH      # phenylketonuria: broad ClinVar curation
+#   - TBL1Y    # Y-linked
+#   - TCHH     # broad curation
+#   - TTN      # very large gene: variant accumulation
+#   - USH2A    # multi-allelic, Usher syndrome

@@ -1,0 +1,10 @@
+# Fixture: bifo_mapping that has edge_resolution but is missing the
+# predicate_to_flow subsection. The loader should raise a clear
+# error naming the missing key.
+
+version: 0.0.0-fixture
+
+edge_resolution:
+  # predicate_to_flow is intentionally absent.
+  some_other_subsection:
+    foo: bar

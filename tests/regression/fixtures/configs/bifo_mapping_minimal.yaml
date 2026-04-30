@@ -1,0 +1,31 @@
+# Fixture: minimal bifo_mapping consistent with pipeline_config_minimal.yaml.
+# Defines the predicates referenced by that pipeline_config, classified
+# correctly so cross-validation succeeds.
+#
+# Only the fields the cross-validator uses are populated:
+#   - direction
+#   - classification
+# bifo_mapping in production has many more fields per predicate (flow,
+# ro_curie, note, etc.); the loader's _BifoMappingPredicate model uses
+# extra='allow' so unknown fields are accepted but ignored.
+
+version: 0.0.0-fixture
+
+edge_resolution:
+  predicate_to_flow:
+
+    inverse_pathway_associated_with_gene:
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    inverse_has_signature_gene:
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    gene_plays_role_in_process:
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational
+
+    gene_product_plays_role_in_biological_process:
+      direction: source_to_target
+      classification: weak_mechanistic_or_observational

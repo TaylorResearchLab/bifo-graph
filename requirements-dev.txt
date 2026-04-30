@@ -1,0 +1,10 @@
+# bifo-graph development dependencies.
+# Install both files to set up a dev env:
+#   pip install -r requirements.txt -r requirements-dev.txt
+#
+# Versions match the conda env in /mnt/isilon/taylor_lab/miniconda3/envs/bifo-spectral.
+
+-r requirements.txt
+
+pytest==9.0.3
+pytest-cov==7.1.0

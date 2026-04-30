@@ -10,7 +10,7 @@ cd bifo-graph
 pip install numpy pandas scipy scikit-learn pyyaml
 ```
 
-Python 3.7+ required. All analyses use `pipeline/bifo_conditioning.py` and `pipeline/score_pathways.py` from this repository. The frozen configuration is `config/bifo_mapping.yaml` (v0.7.1).
+Python 3.7+ required. All analyses use `pipeline/bifo_conditioning.py` and `pipeline/score_pathways.py` from this repository. The frozen configuration is `config/bifo_mapping_ddkg.yaml` (v0.7.1).
 
 ---
 
@@ -32,7 +32,7 @@ print(f'Merged: {len(raw)} + {len(mem)} = {len(raw)+len(mem)} edges')
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
   --edges   results/chd_benchmark/edges_merged_chd.csv \
-  --mapping config/bifo_mapping.yaml \
+  --mapping config/bifo_mapping_ddkg.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
   --out-json results/chd_benchmark/results_full.json
@@ -48,7 +48,7 @@ python3 pipeline/bifo_conditioning.py \
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
   --edges   data/benchmark/chd_curated_edges_raw.csv.zip \
-  --mapping config/bifo_mapping.yaml \
+  --mapping config/bifo_mapping_ddkg.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
   --out-json results/chd_benchmark/results_ablation.json
@@ -60,7 +60,7 @@ python3 pipeline/bifo_conditioning.py \
 python3 pipeline/bifo_conditioning.py \
   --nodes   data/benchmark/chd_curated_nodes.csv \
   --edges   results/chd_benchmark/edges_merged_chd.csv \
-  --mapping config/bifo_mapping.yaml \
+  --mapping config/bifo_mapping_ddkg.yaml \
   --seed-nodes    data/benchmark/chd_seed_nodes.txt \
   --heldout-nodes data/benchmark/chd_heldout_nodes.txt \
   --mechanistic-only \
@@ -204,7 +204,7 @@ done
 python3 pipeline/chd_resampling_exhaustive.py \
   --nodes             data/benchmark/chd_curated_nodes.csv \
   --edges-merged      results/chd_benchmark/edges_merged_chd.csv \
-  --mapping           config/bifo_mapping.yaml \
+  --mapping           config/bifo_mapping_ddkg.yaml \
   --gene-pool         data/benchmark/chd_seed_nodes.txt \
   --chd-pathways      data/benchmark/chd_pathway_reference.txt \
   --out-csv           results/chd_benchmark/resampling_results.csv \
@@ -273,7 +273,7 @@ bash scripts/merge_files.sh chd
 python3 pipeline/bifo_conditioning.py \
   --nodes   results/kf_chd/nodes_clean_noncc.csv.gz \
   --edges   results/kf_chd/edges_all_noncc.csv.gz \
-  --mapping config/bifo_mapping.yaml \
+  --mapping config/bifo_mapping_ddkg.yaml \
   --seed-nodes    data/cohorts/chd/kf_chd_seed_cuis.txt \
   --heldout-nodes data/cohorts/chd/kf_chd_seed_cuis.txt \
   --out-json results/kf_chd/results.json
@@ -374,7 +374,7 @@ bash scripts/merge_files.sh nbl
 python3 pipeline/bifo_conditioning.py \
   --nodes   results/kf_nbl/nodes_clean_noncc.csv.gz \
   --edges   results/kf_nbl/edges_all_noncc.csv.gz \
-  --mapping config/bifo_mapping.yaml \
+  --mapping config/bifo_mapping_ddkg.yaml \
   --seed-nodes    data/cohorts/nbl/kf_nbl_seed_cuis.txt \
   --heldout-nodes data/cohorts/nbl/kf_nbl_seed_cuis.txt \
   --out-json results/kf_nbl/results.json
@@ -622,7 +622,7 @@ All analysis parameters are documented in `BENCHMARK_MANIFEST.md`. Key settings:
 | PPR alpha | 0.5 |
 | PPR tolerance | 1e-10 |
 | PPR max iterations | 500 |
-| bifo_mapping.yaml version | v0.7.1 |
+| bifo_mapping_ddkg.yaml version | v0.7.1 |
 | min_members filter | 8 |
 | max_members filter | 300 |
 | Null model (pathway-node) | membership-rewiring |

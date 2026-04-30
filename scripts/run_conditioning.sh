@@ -6,7 +6,7 @@
 # Usage:
 #   bash run_conditioning.sh [COHORT] [MAPPING]
 #   COHORT  defaults to "chd"
-#   MAPPING defaults to "$CONFIG_DIR/bifo_mapping.yaml"
+#   MAPPING defaults to "$CONFIG_DIR/bifo_mapping_ddkg.yaml"
 #
 # Inputs:
 #   kf_{cohort}_nodes_extended.csv
@@ -22,7 +22,7 @@
 #   results_scores_raw.npy
 #
 # Frozen parameters (from CHD curated benchmark):
-#   alpha=0.50  (set inside bifo_mapping.yaml)
+#   alpha=0.50  (set inside bifo_mapping_ddkg.yaml)
 # =============================================================================
 
 set -euo pipefail
@@ -35,13 +35,11 @@ PIPELINE_DIR="$REPO_DIR/pipeline"
 DATA_DIR="$REPO_DIR/data"
 CONFIG_DIR="$REPO_DIR/config"
 if [ -z "$MAPPING" ]; then
-    if [ -f "$CONFIG_DIR/bifo_mapping.yaml" ]; then
-        MAPPING="$CONFIG_DIR/bifo_mapping.yaml"
-    elif [ -f "$CONFIG_DIR/bifo_mapping.yaml" ]; then
-        MAPPING="$CONFIG_DIR/bifo_mapping.yaml"
+    if [ -f "$CONFIG_DIR/bifo_mapping_ddkg.yaml" ]; then
+        MAPPING="$CONFIG_DIR/bifo_mapping_ddkg.yaml"
     else
-        echo "ERROR: bifo_mapping.yaml not found in working dir or repo config/"
-        echo "Run setup_workspace.sh first, or: cp config/bifo_mapping.yaml ."
+        echo "ERROR: bifo_mapping_ddkg.yaml not found in working dir or repo config/"
+        echo "Run setup_workspace.sh first, or: cp config/bifo_mapping_ddkg.yaml ."
         exit 1
     fi
 fi

@@ -920,7 +920,7 @@ def write_llm(summary, seed_ids, reference_ids, cohort_name, disease,
         'or URL of the knowledge graph used.\n'
         '- **Pipeline log:** Path to the score_pathways.py log file. The log '
         'records permutation count, null model type, and runtime parameters.\n'
-        '- **BIFO version:** The bifo_mapping.yaml version tag or git commit '
+        '- **BIFO version:** The bifo_mapping_ddkg.yaml version tag or git commit '
         'hash of the bifo-graph repository.\n'
         '- **Python version:** Python version used for the analysis.\n'
         '- **Input data source:** Cohort description, data repository, '

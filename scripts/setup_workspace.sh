@@ -44,7 +44,7 @@ link_item() {
 }
 
 # Config
-link_item "$REPO_DIR/config/bifo_mapping.yaml" "$WORK_DIR/bifo_mapping.yaml"
+link_item "$REPO_DIR/config/bifo_mapping_ddkg.yaml" "$WORK_DIR/bifo_mapping_ddkg.yaml"
 
 # Seed files
 SEED_SUFFIX="${SEEDS:+_${SEEDS}}"

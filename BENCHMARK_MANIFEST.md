@@ -16,9 +16,9 @@
 | c4_random_seed | 42 | `data/benchmark/c4_*_seed_nodes.txt` |
 | convergence_tolerance | 1e-10 | `pipeline/bifo_conditioning.py` |
 | max_ppr_iterations | 500 | `pipeline/bifo_conditioning.py` |
-| yaml_version | v0.7.1 | `config/bifo_mapping.yaml` |
+| yaml_version | v0.7.1 | `config/bifo_mapping_ddkg.yaml` |
 | gene_universe | all C-prefixed nodes (~13,000) | `pipeline/baseline_enrichment.py` |
-| pathway_direction | unidirectional gene→pathway (BIFO spec v0.02) | `config/bifo_mapping.yaml` |
+| pathway_direction | unidirectional gene→pathway (BIFO spec v0.02) | `config/bifo_mapping_ddkg.yaml` |
 
 ## Expected output metrics
 

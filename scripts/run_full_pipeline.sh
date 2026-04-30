@@ -24,7 +24,7 @@
 #                     merge_files.sh, run_seed_lookup.sh,
 #                     run_conditioning.sh, run_scoring.sh, run_baseline.sh,
 #                     run_resampling.sh
-#   Data files      : bifo_mapping.yaml, kf_{cohort}_seeds.txt
+#   Data files      : bifo_mapping_ddkg.yaml, kf_{cohort}_seeds.txt
 # =============================================================================
 
 set -euo pipefail

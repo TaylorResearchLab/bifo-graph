@@ -36,3 +36,9 @@ bifo_audit_2026-04-28.tar.gz
 
 # Audit tarball (unpacked content lives in audit_2026-04-28/)
 bifo_audit_2026-04-28.tar.gz
+
+# Pre-recovery analysis artifacts (April 2026 audit). Kept on disk for
+# historical reference; not tracked because the four largest files
+# (edges_all_noncc.csv, results_kept_edges.csv per cohort) exceed
+# GitHub's 100 MB file size limit.
+results/kf_*/_archived_pre_reproduce/

@@ -14,12 +14,12 @@ UNIT_TESTS_DIR: Path = TESTS_ROOT / "unit"
 REGRESSION_TESTS_DIR: Path = TESTS_ROOT / "regression"
 INTEGRATION_TESTS_DIR: Path = TESTS_ROOT / "integration"
 
-# Paths to checked-in fixture data and baseline manifests.
-# These directories are created in subsequent steps (Step 0 creates BASELINES_DIR;
-# Step 1 creates FIXTURES_DIR/configs/). pathlib.Path objects don't require
-# the underlying directory to exist.
+# Paths to checked-in fixture data and run manifests.
+# FIXTURES_DIR is created in subsequent steps when first needed.
+# RUN_MANIFESTS_DIR holds JSONL manifests describing known-good HPC runs;
+# these are byte-level diff targets for regression tests.
 FIXTURES_DIR: Path = REGRESSION_TESTS_DIR / "fixtures"
-BASELINES_DIR: Path = REGRESSION_TESTS_DIR / "baselines"
+RUN_MANIFESTS_DIR: Path = REGRESSION_TESTS_DIR / "run_manifests"
 
 # Pipeline source directory, for tests that import pipeline modules.
 PIPELINE_DIR: Path = PROJECT_ROOT / "pipeline"

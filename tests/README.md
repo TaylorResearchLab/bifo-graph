@@ -34,13 +34,13 @@ pytest -k test_config        # Tests whose name contains "test_config".
 
 ## Layout
 
-| Directory                    | Purpose |
-|------------------------------|---------|
-| `tests/unit/`                | Pure-function tests. No I/O, no subprocess, no fixtures larger than a few KB. Should run in <1s each. |
-| `tests/regression/`          | Tests that run pipeline modules against checked-in fixture inputs and compare outputs to checked-in expected values. |
-| `tests/regression/fixtures/` | Small (<=100 KB) inputs that exercise specific code paths. |
-| `tests/regression/baselines/`| Manifests describing known-good HPC runs. JSONL format; one record per output file. Validates that downstream code changes don't silently alter pipeline output. |
-| `tests/integration/`         | Tests requiring external infrastructure (live KG, full HPC compute). Marked `slow` and/or `requires_kg`. |
+| Directory                        | Purpose |
+|----------------------------------|---------|
+| `tests/unit/`                    | Pure-function tests. No I/O, no subprocess, no fixtures larger than a few KB. Should run in <1s each. |
+| `tests/regression/`              | Tests that run pipeline modules against checked-in fixture inputs and compare outputs to checked-in expected values. |
+| `tests/regression/fixtures/`     | Small (<=100 KB) inputs that exercise specific code paths. |
+| `tests/regression/run_manifests/`| JSONL manifests describing known-good HPC pipeline runs. One record per output file. Used by regression tests as byte-level diff targets. See `tests/regression/run_manifests/README.md`. |
+| `tests/integration/`             | Tests requiring external infrastructure (live KG, full HPC compute). Marked `slow` and/or `requires_kg`. |
 
 ## Markers
 
@@ -61,8 +61,8 @@ marker names a hard error.
 - A new full-cohort baseline diff: `tests/integration/test_<cohort>_<scenario>.py`,
   marked `@pytest.mark.slow`.
 - New fixtures: `tests/regression/fixtures/`. Keep them small; large reference
-  data lives on the HPC and is referenced via baseline manifests in
-  `tests/regression/baselines/`.
+  data lives on the HPC and is referenced via run manifests in
+  `tests/regression/run_manifests/`.
 
 When adding a regression test, also commit the expected output files alongside
 the test. The validation gate at every step in development is "diff the new
